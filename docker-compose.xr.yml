@@ -1,0 +1,110 @@
+# Copyright 2020-2022 Cisco Systems Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+services:
+  # XRd containers
+  xrd-1:
+    xr_startup_cfg: xrd-1-startup.cfg
+    xr_interfaces:
+      - Gi0/0/0/2
+      - Mg0/RP0/CPU0/0
+  xrd-2:
+    xr_startup_cfg: xrd-2-startup.cfg
+    xr_interfaces:
+      - Gi0/0/0/0
+      - Gi0/0/0/1
+      - Gi0/0/0/2
+      - Gi0/0/0/3
+      - Gi0/0/0/5
+      - Mg0/RP0/CPU0/0
+  xrd-3:
+    xr_startup_cfg: xrd-3-startup.cfg
+    xr_interfaces:
+      - Gi0/0/0/0
+      - Gi0/0/0/1
+      - Gi0/0/0/2
+      - Gi0/0/0/3
+      - Mg0/RP0/CPU0/0
+  xrd-4:
+    xr_startup_cfg: xrd-4-startup.cfg
+    xr_interfaces:
+      - Gi0/0/0/0
+      - Gi0/0/0/1
+      - Gi0/0/0/2
+      - Gi0/0/0/4
+      - Mg0/RP0/CPU0/0
+  xrd-5:
+    xr_startup_cfg: xrd-5-startup.cfg
+    xr_interfaces:
+      - Gi0/0/0/0
+      - Mg0/RP0/CPU0/0
+  xrd-6:
+    xr_startup_cfg: xrd-6-startup.cfg
+    xr_interfaces:
+      - Gi0/0/0/0
+      - Gi0/0/0/1
+      - Mg0/RP0/CPU0/0
+  xrd-7:
+    xr_startup_cfg: xrd-7-startup.cfg
+    xr_interfaces:
+      - Gi0/0/0/0
+      - Gi0/0/0/1
+      - Gi0/0/0/2
+      - Gi0/0/0/3
+      - Gi0/0/0/4
+      - Mg0/RP0/CPU0/0
+  xrd-8:
+    xr_startup_cfg: xrd-8-startup.cfg
+    xr_interfaces:
+      - Gi0/0/0/1
+      - Gi0/0/0/2
+      - Mg0/RP0/CPU0/0
+  xrd-9:
+    xr_startup_cfg: xrd-9-startup.cfg
+    xr_interfaces:
+      - Gi0/0/0/3
+      - Gi0/0/0/5
+      - Mg0/RP0/CPU0/0
+ 
+
+xr_l2networks:
+  - ["xrd-1:Gi0/0/0/2", "xrd-2:Gi0/0/0/2"]
+  - ["xrd-2:Gi0/0/0/0", "xrd-3:Gi0/0/0/0"]
+  - ["xrd-2:Gi0/0/0/1", "xrd-6:Gi0/0/0/1"]
+  - ["xrd-2:Gi0/0/0/3", "xrd-7:Gi0/0/0/3"]
+  - ["xrd-2:Gi0/0/0/5", "xrd-9:Gi0/0/0/5"]
+  - ["xrd-3:Gi0/0/0/1", "xrd-7:Gi0/0/0/1"]
+  - ["xrd-3:Gi0/0/0/2", "xrd-4:Gi0/0/0/2"]
+  - ["xrd-3:Gi0/0/0/3", "xrd-9:Gi0/0/0/3"]
+  - ["xrd-4:Gi0/0/0/0", "xrd-5:Gi0/0/0/0"]
+  - ["xrd-4:Gi0/0/0/1", "xrd-8:Gi0/0/0/1"]
+  - ["xrd-4:Gi0/0/0/4", "xrd-7:Gi0/0/0/4"]
+  - ["xrd-6:Gi0/0/0/0", "xrd-7:Gi0/0/0/0"]
+  - ["xrd-7:Gi0/0/0/2", "xrd-8:Gi0/0/0/2"]
+
+networks:
+  mgmt:
+    xr_interfaces:
+      - xrd-1:Mg0/RP0/CPU0/0
+      - xrd-2:Mg0/RP0/CPU0/0
+      - xrd-3:Mg0/RP0/CPU0/0
+      - xrd-4:Mg0/RP0/CPU0/0
+      - xrd-5:Mg0/RP0/CPU0/0
+      - xrd-6:Mg0/RP0/CPU0/0
+      - xrd-7:Mg0/RP0/CPU0/0
+      - xrd-8:Mg0/RP0/CPU0/0
+      - xrd-9:Mg0/RP0/CPU0/0
+    ipam:
+      config:
+        - subnet: 192.168.18.0/24
