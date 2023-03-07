@@ -21,8 +21,9 @@ Resolving deltas: 100% (69/69), done.
 (vxrdlab) lab@xrdlab:~/github$ 
 ```
 
+
 ```bash
-(vxrdlab) lab@xrdlab:~/github$ cd ansible-cisco-xrd-sr/ansible-cisco-segment-routing/
+(vxrdlab) lab@xrdlab:~/github$ cd ansible-cisco-xrd-sr/
 ```
 
 ```bash
@@ -67,6 +68,9 @@ ed1a00be66b1   localhost/ios-xr:7.7.1   "/bin/sh -c /sbin/xr…"   23 seconds ag
 (vxrdlab) lab@xrdlab:~/github/ansible-cisco-xrd-sr$
 ```
 
+```bash
+(vxrdlab) lab@xrdlab:~/github/ansible-cisco-xrd-sr$ cd ansible-cisco-segment-routing/
+```
 
 ```bash
 (vxrdlab) lab@xrdlab:~/github/ansible-cisco-xrd-sr/ansible-cisco-segment-routing$ ansible-playbook all_inclusive_play.yaml
