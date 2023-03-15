@@ -13,7 +13,7 @@
 
 
 ## How TO
-```bash
+```ruby
 (vxrdlab) lab@xrdlab:~/github$ git clone https://github.com/hmntsharma/ansible-cisco-xrd-sr.git
 Cloning into 'ansible-cisco-xrd-sr'...
 remote: Enumerating objects: 129, done.
