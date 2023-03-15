@@ -81,7 +81,7 @@ then run the playbook
 ansible-playbook all_inclusive_play.yaml
 ```
 
-```java
+```ruby
 PLAY [0. RESTORE BASE TOPOLOGY] ************************************************
 
 TASK [0.0 RENDER AND DISPLAY THE BASE CONFIGURATION] ***************************
