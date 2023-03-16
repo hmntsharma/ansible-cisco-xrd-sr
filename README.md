@@ -1,7 +1,18 @@
-# ansible-cisco-xrd-sr
+# ansible-cisco-xrd-sr [completely containerized]
 
-* Following on from [cisco-xrd](https://hmntsharma.github.io/cisco-xrd/), This lab is a clone of [ansible-cisco-segment-routing](https://github.com/hmntsharma/ansible-cisco-segment-routing), which utilises the xrv9k image, but this time using the Cisco XRd control-plane containerized image.
+* This lab is a continuation of [ansible-cisco-segment-routing](https://github.com/hmntsharma/ansible-cisco-segment-routing), however it uses XRd-Control-Plane instead of XRv9k.
 
+* How to configure an xrd-control-plane image is previously documented in [cisco-xrd](https://hmntsharma.github.io/cisco-xrd/).
+
+```ruby
+lab@xrdlab:~$ sudo docker images
+localhost/ios-xr                          7.7.1     dd8d741e50b2   7 months ago   1.15GB
+lab@xrdlab:~$
+```
+* In this lab, the nodes and their management station are all running as independent containers linked to the same management bridge.
+
+
+---
 > **Warning**
 > Everything appears to be functioning well, with the exception of Microloop Avoidance, which is triggered but does not generate an explicit path to avoid the loop.
 
@@ -10,187 +21,159 @@
 > For this lab, the docker-compose.yml and ansible.cfg files have been updated as needed.
 > 
 > You need a valid Cisco contract to download the XRd control-plane image which is used in this lab.
-
+---
 
 ## How TO
+
+### Base Topology Definition
+
+The topology is defined in ```docker-compose.xr.yml```, which is then passed into the ```xr-compose``` script of xrd-tools, example [here](https://hmntsharma.github.io/cisco-xrd/simple_bgp/#xr-compose), to generate ```docker-compose.yml```.
+
+
+### Topology Extension 
+
+The following changes have been made to the ```docker-compose.yml```.
+
 ```ruby
-(vxrdlab) lab@xrdlab:~/github$ git clone https://github.com/hmntsharma/ansible-cisco-xrd-sr.git
-Cloning into 'ansible-cisco-xrd-sr'...
-remote: Enumerating objects: 129, done.
-remote: Counting objects: 100% (129/129), done.
-remote: Compressing objects: 100% (59/59), done.
-remote: Total 129 (delta 69), reused 125 (delta 68), pack-reused 0
-Receiving objects: 100% (129/129), 43.66 KiB | 2.30 MiB/s, done.
-Resolving deltas: 100% (69/69), done.
-(vxrdlab) lab@xrdlab:~/github$ 
+networks:
+  mgmt:
+    driver_opts:
+      com.docker.network.bridge.name: br-ansible-mgmt      # Named the bridge
+      com.docker.network.container_iface_prefix: xr-13
+    ipam:
+      config:
+      - subnet: 192.168.18.0/24
+        gateway: 192.168.18.100                            # Assigned an IP from the subnet to the gateway
+```
+
+Added the container package from the [ansible-cisco-segment-routing](https://github.com/hmntsharma/ansible-cisco-segment-routing/pkgs/container/ansible-cisco-sr-lab)
+```ruby
+services:
+  ansible-cisco-sr-lab:                                    # Added the dockerized ansible management system to the topology
+    container_name: ansible-cisco-sr-lab
+    image: ghcr.io/hmntsharma/ansible-cisco-sr-lab:latest
+    stdin_open: true
+    tty: true
+    networks:
+      mgmt:
+        ipv4_address: 192.168.18.110
+```
+
+```ruby
+  xrd-1:
+    networks:
+      mgmt:
+        ipv4_address: 192.168.18.1                         # Assigned static IP address to the mgmt interface of each node
 ```
 
 
-```bash
+### Clone the Repository
+```ruby
+(vxrdlab) lab@xrdlab:~/github$ git clone https://github.com/hmntsharma/ansible-cisco-xrd-sr.git
+```
+
+```ruby
 (vxrdlab) lab@xrdlab:~/github$ cd ansible-cisco-xrd-sr/
 ```
 
-```bash
-(vxrdlab) lab@xrdlab:~/github/ansible-cisco-xrd-sr$ sudo docker-compose up -d
-Creating network "ansible-cisco-xrd-sr_mgmt" with the default driver
-Creating network "xrd-1-gi2-xrd-2-gi2" with the default driver
-Creating network "xrd-2-gi0-xrd-3-gi0" with the default driver
-Creating network "xrd-2-gi1-xrd-6-gi1" with the default driver
-Creating network "xrd-2-gi3-xrd-7-gi3" with the default driver
-Creating network "xrd-2-gi5-xrd-9-gi5" with the default driver
-Creating network "xrd-3-gi1-xrd-7-gi1" with the default driver
-Creating network "xrd-3-gi2-xrd-4-gi2" with the default driver
-Creating network "xrd-3-gi3-xrd-9-gi3" with the default driver
-Creating network "xrd-4-gi0-xrd-5-gi0" with the default driver
-Creating network "xrd-4-gi1-xrd-8-gi1" with the default driver
-Creating network "xrd-6-gi0-xrd-7-gi0" with the default driver
-Creating network "xrd-7-gi2-xrd-8-gi2" with the default driver
-Creating xrd-2 ... done
-Creating xrd-6 ... done
-Creating xrd-3 ... done
-Creating xrd-8 ... done
-Creating xrd-7 ... done
-Creating xrd-4 ... done
-Creating xrd-1 ... done
-Creating xrd-9 ... done
-Creating xrd-5 ... done
+### Bring up the topology
+
+```ruby
+(vxrdlab) lab@xrdlab:~/github/ansible-cisco-xrd-sr$ sudo docker compose up -d
+[+] Running 4/4
+ ⠿ ansible-cisco-sr-lab Pulled                          23.0s
+   ⠿ 63b65145d645 Pull complete                          0.7s
+   ⠿ 1df1662daeae Pull complete                         21.6s
+   ⠿ 0c2da3c651fd Pull complete                         21.8s
+[+] Running 24/24
+ ⠿ Network xrd-7-gi2-xrd-8-gi2        Created           0.1s
+ ⠿ Network xrd-2-gi0-xrd-3-gi0        Created           0.1s
+ ⠿ Network xrd-3-gi2-xrd-4-gi2        Created           0.1s
+ ⠿ Network ansible-cisco-xrd-sr_mgmt  Created           0.1s
+ ⠿ Network xrd-4-gi0-xrd-5-gi0        Created           0.1s
+ ⠿ Network xrd-6-gi0-xrd-7-gi0        Created           0.1s
+ ⠿ Network xrd-4-gi4-xrd-7-gi4        Created           0.1s
+ ⠿ Network xrd-2-gi1-xrd-6-gi1        Created           0.1s
+ ⠿ Network xrd-2-gi5-xrd-9-gi5        Created           0.1s
+ ⠿ Network xrd-3-gi3-xrd-9-gi3        Created           0.1s
+ ⠿ Network xrd-1-gi2-xrd-2-gi2        Created           0.1s
+ ⠿ Network xrd-2-gi3-xrd-7-gi3        Created           0.1s
+ ⠿ Network xrd-4-gi1-xrd-8-gi1        Created           0.1s
+ ⠿ Network xrd-3-gi1-xrd-7-gi1        Created           0.1s
+ ⠿ Container xrd-8                    Started           5.8s
+ ⠿ Container xrd-7                    Started           8.1s
+ ⠿ Container xrd-4                    Started           7.1s
+ ⠿ Container xrd-3                    Started           8.0s
+ ⠿ Container xrd-1                    Started           5.6s
+ ⠿ Container xrd-2                    Started           8.2s
+ ⠿ Container xrd-5                    Started           4.7s
+ ⠿ Container xrd-9                    Started           5.5s
+ ⠿ Container ansible-cisco-sr-lab     Started           3.8s
+ ⠿ Container xrd-6                    Started           6.2s
 (vxrdlab) lab@xrdlab:~/github/ansible-cisco-xrd-sr$
 ```
 
-```bash
-(vxrdlab) lab@xrdlab:~/github/ansible-cisco-xrd-sr$ sudo docker ps
-CONTAINER ID   IMAGE                    COMMAND                  CREATED          STATUS          PORTS     NAMES
-51a073d591a6   localhost/ios-xr:7.7.1   "/bin/sh -c /sbin/xr…"   23 seconds ago   Up 20 seconds             xrd-5
-c92817e14114   localhost/ios-xr:7.7.1   "/bin/sh -c /sbin/xr…"   23 seconds ago   Up 21 seconds             xrd-1
-f0c53e74db53   localhost/ios-xr:7.7.1   "/bin/sh -c /sbin/xr…"   23 seconds ago   Up 20 seconds             xrd-9
-79113cd5fbb0   localhost/ios-xr:7.7.1   "/bin/sh -c /sbin/xr…"   23 seconds ago   Up 18 seconds             xrd-4
-47e472eba2f5   localhost/ios-xr:7.7.1   "/bin/sh -c /sbin/xr…"   23 seconds ago   Up 21 seconds             xrd-8
-e993d8642e99   localhost/ios-xr:7.7.1   "/bin/sh -c /sbin/xr…"   23 seconds ago   Up 18 seconds             xrd-7
-10112df01872   localhost/ios-xr:7.7.1   "/bin/sh -c /sbin/xr…"   23 seconds ago   Up 19 seconds             xrd-3
-ed1a00be66b1   localhost/ios-xr:7.7.1   "/bin/sh -c /sbin/xr…"   23 seconds ago   Up 20 seconds             xrd-6
-3dfc765a4223   localhost/ios-xr:7.7.1   "/bin/sh -c /sbin/xr…"   23 seconds ago   Up 18 seconds             xrd-2
+### Verify
+```ruby
+(vxrdlab) lab@xrdlab:~/github/ansible-cisco-xrd-sr$ sudo docker ps -a
+CONTAINER ID   IMAGE                                            COMMAND                  CREATED          STATUS          PORTS     NAMES
+e3641f30e773   localhost/ios-xr:7.7.1                           "/bin/sh -c /sbin/xr…"   40 seconds ago   Up 33 seconds             xrd-8
+beb4bbabb3b0   localhost/ios-xr:7.7.1                           "/bin/sh -c /sbin/xr…"   40 seconds ago   Up 34 seconds             xrd-5
+edbf96a19964   localhost/ios-xr:7.7.1                           "/bin/sh -c /sbin/xr…"   40 seconds ago   Up 32 seconds             xrd-4
+221faa752aeb   localhost/ios-xr:7.7.1                           "/bin/sh -c /sbin/xr…"   40 seconds ago   Up 33 seconds             xrd-1
+f6bd12b1b55f   localhost/ios-xr:7.7.1                           "/bin/sh -c /sbin/xr…"   40 seconds ago   Up 33 seconds             xrd-6
+5541a5f10543   localhost/ios-xr:7.7.1                           "/bin/sh -c /sbin/xr…"   40 seconds ago   Up 31 seconds             xrd-3
+d247231338a6   localhost/ios-xr:7.7.1                           "/bin/sh -c /sbin/xr…"   40 seconds ago   Up 31 seconds             xrd-2
+2ddd3d860927   ghcr.io/hmntsharma/ansible-cisco-sr-lab:latest   "/bin/sh"                40 seconds ago   Up 35 seconds             ansible-cisco-sr-lab
+851b53bfdb6c   localhost/ios-xr:7.7.1                           "/bin/sh -c /sbin/xr…"   40 seconds ago   Up 33 seconds             xrd-9
+b24e961b01c8   localhost/ios-xr:7.7.1                           "/bin/sh -c /sbin/xr…"   40 seconds ago   Up 31 seconds             xrd-7
 (vxrdlab) lab@xrdlab:~/github/ansible-cisco-xrd-sr$
 ```
 
-```bash
-(vxrdlab) lab@xrdlab:~/github/ansible-cisco-xrd-sr$ cd ansible-cisco-segment-routing/
-```
+### Execute the playbook
 
-then run the playbook
-```java
-ansible-playbook all_inclusive_play.yaml
+Username: ```cisco``` | Password: ```cisco```
+
+Enter the password at the prompt.
+
+```ruby
+(vxrdlab) lab@xrdlab:~/github/ansible-cisco-xrd-sr$ sudo docker exec -it ansible-cisco-sr-lab ansible-playbook -u cisco -k all_inclusive_play.yaml
+SSH password:
 ```
 
 ```ruby
 PLAY [0. RESTORE BASE TOPOLOGY] ************************************************
 
 TASK [0.0 RENDER AND DISPLAY THE BASE CONFIGURATION] ***************************
-ok: [P3] =>
-  msg:
-  - 'template: restore_topology_template.j2'
-  - - username cisco
-    - ' group root-lr'
-    - ' group cisco-support'
-    - ' secret 10 $6$qtiDT/ivnLyw3T/.$JlOj2V4BOGwTJgVvl6AgodCcE6QBYHF6nyXF3ySQiEmKFti5/51Bq42Om5XVd1HuSoSr0F.illObQIzqwcrdR.'
-    - '!'
-    - logging console debugging
-    - logging monitor debugging
-    - '!'
-    - interface MgmtEth0/RP0/CPU0/0
-    - ' no shut'
-    - ' ipv4 address 192.168.18.3 255.255.255.0'
-    - '!'
-    - ssh server v2
-    - ''
-    - ''
 ok: [P2] =>
   msg:
   - 'template: restore_topology_template.j2'
   - - username cisco
     - ' group root-lr'
     - ' group cisco-support'
-    - ' secret 10 $6$qtiDT/ivnLyw3T/.$JlOj2V4BOGwTJgVvl6AgodCcE6QBYHF6nyXF3ySQiEmKFti5/51Bq42Om5XVd1HuSoSr0F.illObQIzqwcrdR.'
+    - ' secret 10 $6$m69UO/m0cK.e3O/.$EtYXDVl3/aphJkazxKy145fyIY/./Xxt1fi7B3tjYemXr6pzHEJRNfq1DxNJ..WlAQx4wFr6kJesSGtKLv8/k/'
     - '!'
-    - logging console debugging
-    - logging monitor debugging
+    - call-home
+    - ' service active'
+    - ' contact smart-licensing'
+    - ' profile CiscoTAC-1'
+    - '  active'
+    - '  destination transport-method email disable'
+    - '  destination transport-method http'
+    - ' !'
     - '!'
+    - ''
     - interface MgmtEth0/RP0/CPU0/0
-    - ' no shut'
+    - ' no ipv4 address dhcp'
     - ' ipv4 address 192.168.18.2 255.255.255.0'
+    - ' no shutdown'
     - '!'
-    - ssh server v2
     - ''
+    - ssh client source-interface MgmtEth0/RP0/CPU0/0
+    - ssh server vrf default
     - ''
-ok: [P6] =>
-  msg:
-  - 'template: restore_topology_template.j2'
-  - - username cisco
-    - ' group root-lr'
-    - ' group cisco-support'
-    - ' secret 10 $6$qtiDT/ivnLyw3T/.$JlOj2V4BOGwTJgVvl6AgodCcE6QBYHF6nyXF3ySQiEmKFti5/51Bq42Om5XVd1HuSoSr0F.illObQIzqwcrdR.'
+    - root
     - '!'
-    - logging console debugging
-    - logging monitor debugging
-    - '!'
-    - interface MgmtEth0/RP0/CPU0/0
-    - ' no shut'
-    - ' ipv4 address 192.168.18.6 255.255.255.0'
-    - '!'
-    - ssh server v2
-    - ''
-    - ''
-ok: [PE1] =>
-  msg:
-  - 'template: restore_topology_template.j2'
-  - - username cisco
-    - ' group root-lr'
-    - ' group cisco-support'
-    - ' secret 10 $6$qtiDT/ivnLyw3T/.$JlOj2V4BOGwTJgVvl6AgodCcE6QBYHF6nyXF3ySQiEmKFti5/51Bq42Om5XVd1HuSoSr0F.illObQIzqwcrdR.'
-    - '!'
-    - logging console debugging
-    - logging monitor debugging
-    - '!'
-    - interface MgmtEth0/RP0/CPU0/0
-    - ' no shut'
-    - ' ipv4 address 192.168.18.1 255.255.255.0'
-    - '!'
-    - ssh server v2
-    - ''
-    - ''
-ok: [P4] =>
-  msg:
-  - 'template: restore_topology_template.j2'
-  - - username cisco
-    - ' group root-lr'
-    - ' group cisco-support'
-    - ' secret 10 $6$qtiDT/ivnLyw3T/.$JlOj2V4BOGwTJgVvl6AgodCcE6QBYHF6nyXF3ySQiEmKFti5/51Bq42Om5XVd1HuSoSr0F.illObQIzqwcrdR.'
-    - '!'
-    - logging console debugging
-    - logging monitor debugging
-    - '!'
-    - interface MgmtEth0/RP0/CPU0/0
-    - ' no shut'
-    - ' ipv4 address 192.168.18.4 255.255.255.0'
-    - '!'
-    - ssh server v2
-    - ''
-    - ''
-ok: [P8] =>
-  msg:
-  - 'template: restore_topology_template.j2'
-  - - username cisco
-    - ' group root-lr'
-    - ' group cisco-support'
-    - ' secret 10 $6$qtiDT/ivnLyw3T/.$JlOj2V4BOGwTJgVvl6AgodCcE6QBYHF6nyXF3ySQiEmKFti5/51Bq42Om5XVd1HuSoSr0F.illObQIzqwcrdR.'
-    - '!'
-    - logging console debugging
-    - logging monitor debugging
-    - '!'
-    - interface MgmtEth0/RP0/CPU0/0
-    - ' no shut'
-    - ' ipv4 address 192.168.18.8 255.255.255.0'
-    - '!'
-    - ssh server v2
     - ''
     - ''
 ok: [PE5] =>
@@ -199,34 +182,153 @@ ok: [PE5] =>
   - - username cisco
     - ' group root-lr'
     - ' group cisco-support'
-    - ' secret 10 $6$qtiDT/ivnLyw3T/.$JlOj2V4BOGwTJgVvl6AgodCcE6QBYHF6nyXF3ySQiEmKFti5/51Bq42Om5XVd1HuSoSr0F.illObQIzqwcrdR.'
+    - ' secret 10 $6$m69UO/m0cK.e3O/.$EtYXDVl3/aphJkazxKy145fyIY/./Xxt1fi7B3tjYemXr6pzHEJRNfq1DxNJ..WlAQx4wFr6kJesSGtKLv8/k/'
     - '!'
-    - logging console debugging
-    - logging monitor debugging
+    - call-home
+    - ' service active'
+    - ' contact smart-licensing'
+    - ' profile CiscoTAC-1'
+    - '  active'
+    - '  destination transport-method email disable'
+    - '  destination transport-method http'
+    - ' !'
     - '!'
+    - ''
     - interface MgmtEth0/RP0/CPU0/0
-    - ' no shut'
+    - ' no ipv4 address dhcp'
     - ' ipv4 address 192.168.18.5 255.255.255.0'
+    - ' no shutdown'
     - '!'
-    - ssh server v2
+    - ''
+    - ssh client source-interface MgmtEth0/RP0/CPU0/0
+    - ssh server vrf default
+    - ''
+    - root
+    - '!'
     - ''
     - ''
-ok: [P7] =>
+ok: [PE1] =>
   msg:
   - 'template: restore_topology_template.j2'
   - - username cisco
     - ' group root-lr'
     - ' group cisco-support'
-    - ' secret 10 $6$qtiDT/ivnLyw3T/.$JlOj2V4BOGwTJgVvl6AgodCcE6QBYHF6nyXF3ySQiEmKFti5/51Bq42Om5XVd1HuSoSr0F.illObQIzqwcrdR.'
+    - ' secret 10 $6$m69UO/m0cK.e3O/.$EtYXDVl3/aphJkazxKy145fyIY/./Xxt1fi7B3tjYemXr6pzHEJRNfq1DxNJ..WlAQx4wFr6kJesSGtKLv8/k/'
     - '!'
-    - logging console debugging
-    - logging monitor debugging
+    - call-home
+    - ' service active'
+    - ' contact smart-licensing'
+    - ' profile CiscoTAC-1'
+    - '  active'
+    - '  destination transport-method email disable'
+    - '  destination transport-method http'
+    - ' !'
     - '!'
+    - ''
     - interface MgmtEth0/RP0/CPU0/0
-    - ' no shut'
-    - ' ipv4 address 192.168.18.7 255.255.255.0'
+    - ' no ipv4 address dhcp'
+    - ' ipv4 address 192.168.18.1 255.255.255.0'
+    - ' no shutdown'
     - '!'
-    - ssh server v2
+    - ''
+    - ssh client source-interface MgmtEth0/RP0/CPU0/0
+    - ssh server vrf default
+    - ''
+    - root
+    - '!'
+    - ''
+    - ''
+ok: [P3] =>
+  msg:
+  - 'template: restore_topology_template.j2'
+  - - username cisco
+    - ' group root-lr'
+    - ' group cisco-support'
+    - ' secret 10 $6$m69UO/m0cK.e3O/.$EtYXDVl3/aphJkazxKy145fyIY/./Xxt1fi7B3tjYemXr6pzHEJRNfq1DxNJ..WlAQx4wFr6kJesSGtKLv8/k/'
+    - '!'
+    - call-home
+    - ' service active'
+    - ' contact smart-licensing'
+    - ' profile CiscoTAC-1'
+    - '  active'
+    - '  destination transport-method email disable'
+    - '  destination transport-method http'
+    - ' !'
+    - '!'
+    - ''
+    - interface MgmtEth0/RP0/CPU0/0
+    - ' no ipv4 address dhcp'
+    - ' ipv4 address 192.168.18.3 255.255.255.0'
+    - ' no shutdown'
+    - '!'
+    - ''
+    - ssh client source-interface MgmtEth0/RP0/CPU0/0
+    - ssh server vrf default
+    - ''
+    - root
+    - '!'
+    - ''
+    - ''
+ok: [P6] =>
+  msg:
+  - 'template: restore_topology_template.j2'
+  - - username cisco
+    - ' group root-lr'
+    - ' group cisco-support'
+    - ' secret 10 $6$m69UO/m0cK.e3O/.$EtYXDVl3/aphJkazxKy145fyIY/./Xxt1fi7B3tjYemXr6pzHEJRNfq1DxNJ..WlAQx4wFr6kJesSGtKLv8/k/'
+    - '!'
+    - call-home
+    - ' service active'
+    - ' contact smart-licensing'
+    - ' profile CiscoTAC-1'
+    - '  active'
+    - '  destination transport-method email disable'
+    - '  destination transport-method http'
+    - ' !'
+    - '!'
+    - ''
+    - interface MgmtEth0/RP0/CPU0/0
+    - ' no ipv4 address dhcp'
+    - ' ipv4 address 192.168.18.6 255.255.255.0'
+    - ' no shutdown'
+    - '!'
+    - ''
+    - ssh client source-interface MgmtEth0/RP0/CPU0/0
+    - ssh server vrf default
+    - ''
+    - root
+    - '!'
+    - ''
+    - ''
+ok: [P8] =>
+  msg:
+  - 'template: restore_topology_template.j2'
+  - - username cisco
+    - ' group root-lr'
+    - ' group cisco-support'
+    - ' secret 10 $6$m69UO/m0cK.e3O/.$EtYXDVl3/aphJkazxKy145fyIY/./Xxt1fi7B3tjYemXr6pzHEJRNfq1DxNJ..WlAQx4wFr6kJesSGtKLv8/k/'
+    - '!'
+    - call-home
+    - ' service active'
+    - ' contact smart-licensing'
+    - ' profile CiscoTAC-1'
+    - '  active'
+    - '  destination transport-method email disable'
+    - '  destination transport-method http'
+    - ' !'
+    - '!'
+    - ''
+    - interface MgmtEth0/RP0/CPU0/0
+    - ' no ipv4 address dhcp'
+    - ' ipv4 address 192.168.18.8 255.255.255.0'
+    - ' no shutdown'
+    - '!'
+    - ''
+    - ssh client source-interface MgmtEth0/RP0/CPU0/0
+    - ssh server vrf default
+    - ''
+    - root
+    - '!'
     - ''
     - ''
 ok: [P9] =>
@@ -235,29 +337,104 @@ ok: [P9] =>
   - - username cisco
     - ' group root-lr'
     - ' group cisco-support'
-    - ' secret 10 $6$qtiDT/ivnLyw3T/.$JlOj2V4BOGwTJgVvl6AgodCcE6QBYHF6nyXF3ySQiEmKFti5/51Bq42Om5XVd1HuSoSr0F.illObQIzqwcrdR.'
+    - ' secret 10 $6$m69UO/m0cK.e3O/.$EtYXDVl3/aphJkazxKy145fyIY/./Xxt1fi7B3tjYemXr6pzHEJRNfq1DxNJ..WlAQx4wFr6kJesSGtKLv8/k/'
     - '!'
-    - logging console debugging
-    - logging monitor debugging
+    - call-home
+    - ' service active'
+    - ' contact smart-licensing'
+    - ' profile CiscoTAC-1'
+    - '  active'
+    - '  destination transport-method email disable'
+    - '  destination transport-method http'
+    - ' !'
     - '!'
+    - ''
     - interface MgmtEth0/RP0/CPU0/0
-    - ' no shut'
+    - ' no ipv4 address dhcp'
     - ' ipv4 address 192.168.18.9 255.255.255.0'
+    - ' no shutdown'
     - '!'
-    - ssh server v2
+    - ''
+    - ssh client source-interface MgmtEth0/RP0/CPU0/0
+    - ssh server vrf default
+    - ''
+    - root
+    - '!'
+    - ''
+    - ''
+ok: [P7] =>
+  msg:
+  - 'template: restore_topology_template.j2'
+  - - username cisco
+    - ' group root-lr'
+    - ' group cisco-support'
+    - ' secret 10 $6$m69UO/m0cK.e3O/.$EtYXDVl3/aphJkazxKy145fyIY/./Xxt1fi7B3tjYemXr6pzHEJRNfq1DxNJ..WlAQx4wFr6kJesSGtKLv8/k/'
+    - '!'
+    - call-home
+    - ' service active'
+    - ' contact smart-licensing'
+    - ' profile CiscoTAC-1'
+    - '  active'
+    - '  destination transport-method email disable'
+    - '  destination transport-method http'
+    - ' !'
+    - '!'
+    - ''
+    - interface MgmtEth0/RP0/CPU0/0
+    - ' no ipv4 address dhcp'
+    - ' ipv4 address 192.168.18.7 255.255.255.0'
+    - ' no shutdown'
+    - '!'
+    - ''
+    - ssh client source-interface MgmtEth0/RP0/CPU0/0
+    - ssh server vrf default
+    - ''
+    - root
+    - '!'
+    - ''
+    - ''
+ok: [P4] =>
+  msg:
+  - 'template: restore_topology_template.j2'
+  - - username cisco
+    - ' group root-lr'
+    - ' group cisco-support'
+    - ' secret 10 $6$m69UO/m0cK.e3O/.$EtYXDVl3/aphJkazxKy145fyIY/./Xxt1fi7B3tjYemXr6pzHEJRNfq1DxNJ..WlAQx4wFr6kJesSGtKLv8/k/'
+    - '!'
+    - call-home
+    - ' service active'
+    - ' contact smart-licensing'
+    - ' profile CiscoTAC-1'
+    - '  active'
+    - '  destination transport-method email disable'
+    - '  destination transport-method http'
+    - ' !'
+    - '!'
+    - ''
+    - interface MgmtEth0/RP0/CPU0/0
+    - ' no ipv4 address dhcp'
+    - ' ipv4 address 192.168.18.4 255.255.255.0'
+    - ' no shutdown'
+    - '!'
+    - ''
+    - ssh client source-interface MgmtEth0/RP0/CPU0/0
+    - ssh server vrf default
+    - ''
+    - root
+    - '!'
     - ''
     - ''
 
 TASK [0.1 RENDER AND SAVE THE BASE CONFIGURATION] ******************************
-ok: [P2]
 ok: [P6]
-ok: [PE1]
-ok: [PE5]
-ok: [P3]
-ok: [P7]
-ok: [P9]
+ok: [P2]
 ok: [P4]
 ok: [P8]
+ok: [P9]
+ok: [PE1]
+ok: [P3]
+ok: [P7]
+ok: [PE5]
 Pausing for 1 seconds
 (ctrl+C then 'C' = continue early, ctrl+C then 'A' = abort)
 
@@ -265,70 +442,91 @@ TASK [1 secs PAUSE FOR CONVERGENCE] ********************************************
 ok: [PE1]
 
 TASK [0.2 DISPLAY THE OUTPUT REGISTERED IN THE PREVIOUS TASK] ******************
-ok: [P2] =>
-  output.dest: xrcfg/P2.base.xrcfg
-ok: [PE5] =>
-  output.dest: xrcfg/PE5.base.xrcfg
-ok: [P6] =>
-  output.dest: xrcfg/P6.base.xrcfg
-ok: [P4] =>
-  output.dest: xrcfg/P4.base.xrcfg
-ok: [P7] =>
-  output.dest: xrcfg/P7.base.xrcfg
-ok: [P8] =>
-  output.dest: xrcfg/P8.base.xrcfg
-ok: [P9] =>
-  output.dest: xrcfg/P9.base.xrcfg
 ok: [PE1] =>
   output.dest: xrcfg/PE1.base.xrcfg
+ok: [P2] =>
+  output.dest: xrcfg/P2.base.xrcfg
+ok: [P6] =>
+  output.dest: xrcfg/P6.base.xrcfg
+ok: [P9] =>
+  output.dest: xrcfg/P9.base.xrcfg
 ok: [P3] =>
   output.dest: xrcfg/P3.base.xrcfg
+ok: [P7] =>
+  output.dest: xrcfg/P7.base.xrcfg
+ok: [P4] =>
+  output.dest: xrcfg/P4.base.xrcfg
+ok: [P8] =>
+  output.dest: xrcfg/P8.base.xrcfg
+ok: [PE5] =>
+  output.dest: xrcfg/PE5.base.xrcfg
 
 TASK [0.3 RENDER AND APPLY THE BASE CONFIGURATION] *****************************
-changed: [P3]
-changed: [P7]
-changed: [P8]
 changed: [PE1]
+changed: [P7]
+changed: [P4]
 changed: [P9]
+changed: [P3]
+changed: [P6]
+changed: [P8]
 changed: [PE5]
 changed: [P2]
-changed: [P6]
-changed: [P4]
 
 PLAY [1. CISCO XRV9K SR WITH TI-LFA LAB PLAYBOOK - GETTING STARTED] ************
 
 TASK [1.0 RENDER AND DISPLAY THE IP, ISIS & LDP CONFIGURATION] *****************
-ok: [P6] =>
+ok: [P2] =>
   msg:
   - 'template: ip_igp_ldp_template.j2'
   - - ''
-    - hostname P6
+    - hostname P2
     - root
     - ''
     - interface Loopback0
-    - ' ipv4 address 6.6.6.6/32'
+    - ' ipv4 address 2.2.2.2/32'
     - ' description System_Loopback_Interface'
     - ' no shutdown'
     - '!'
     - root
     - ''
     - interface GigabitEthernet0/0/0/0
-    - ' ipv4 address 67.0.0.6/24'
-    - ' description P6_to_P7'
+    - ' ipv4 address 23.0.0.2/24'
+    - ' description P2_to_P3'
     - ' no shutdown'
     - '!'
     - root
     - ''
     - interface GigabitEthernet0/0/0/1
-    - ' ipv4 address 26.0.0.6/24'
-    - ' description P6_to_P2'
+    - ' ipv4 address 26.0.0.2/24'
+    - ' description P2_to_P6'
+    - ' no shutdown'
+    - '!'
+    - root
+    - ''
+    - interface GigabitEthernet0/0/0/2
+    - ' ipv4 address 12.0.0.2/24'
+    - ' description P2_to_PE1'
+    - ' no shutdown'
+    - '!'
+    - root
+    - ''
+    - interface GigabitEthernet0/0/0/3
+    - ' ipv4 address 27.0.0.2/24'
+    - ' description P2_to_P7'
+    - ' no shutdown'
+    - '!'
+    - root
+    - ''
+    - interface GigabitEthernet0/0/0/5
+    - ' ipv4 address 29.0.0.2/24'
+    - ' description P2_to_P9'
     - ' no shutdown'
     - '!'
     - root
     - ''
     - router isis IGP
     - ' is-type level-2-only'
-    - ' net 49.0000.0000.0006.00'
+    - ' net 49.0000.0000.0002.00'
     - ' log adjacency changes'
     - ' address-family ipv4 unicast'
     - '  mpls ldp auto-config'
@@ -348,6 +546,30 @@ ok: [P6] =>
     - '  !'
     - ' !'
     - '  interface GigabitEthernet0/0/0/1'
+    - '  circuit-type level-2-only'
+    - '  point-to-point'
+    - '  hello-padding disable'
+    - '  address-family ipv4 unicast'
+    - '   metric 10'
+    - '  !'
+    - ' !'
+    - '  interface GigabitEthernet0/0/0/2'
+    - '  circuit-type level-2-only'
+    - '  point-to-point'
+    - '  hello-padding disable'
+    - '  address-family ipv4 unicast'
+    - '   metric 10'
+    - '  !'
+    - ' !'
+    - '  interface GigabitEthernet0/0/0/3'
+    - '  circuit-type level-2-only'
+    - '  point-to-point'
+    - '  hello-padding disable'
+    - '  address-family ipv4 unicast'
+    - '   metric 10'
+    - '  !'
+    - ' !'
+    - '  interface GigabitEthernet0/0/0/5'
     - '  circuit-type level-2-only'
     - '  point-to-point'
     - '  hello-padding disable'
@@ -404,122 +626,6 @@ ok: [PE5] =>
     - '  !'
     - ' !'
     - '  interface GigabitEthernet0/0/0/0'
-    - '  circuit-type level-2-only'
-    - '  point-to-point'
-    - '  hello-padding disable'
-    - '  address-family ipv4 unicast'
-    - '   metric 10'
-    - '  !'
-    - ' !'
-    - '  !'
-    - root
-    - ''
-    - mpls oam
-    - '!'
-    - mpls ldp
-    - ' log'
-    - '  neighbor'
-    - ' !'
-    - '!'
-    - root
-    - '!'
-    - ''
-    - ''
-ok: [P7] =>
-  msg:
-  - 'template: ip_igp_ldp_template.j2'
-  - - ''
-    - hostname P7
-    - root
-    - ''
-    - interface Loopback0
-    - ' ipv4 address 7.7.7.7/32'
-    - ' description System_Loopback_Interface'
-    - ' no shutdown'
-    - '!'
-    - root
-    - ''
-    - interface GigabitEthernet0/0/0/0
-    - ' ipv4 address 67.0.0.7/24'
-    - ' description P7_to_P6'
-    - ' no shutdown'
-    - '!'
-    - root
-    - ''
-    - interface GigabitEthernet0/0/0/1
-    - ' ipv4 address 37.0.0.7/24'
-    - ' description P7_to_P7'
-    - ' no shutdown'
-    - '!'
-    - root
-    - ''
-    - interface GigabitEthernet0/0/0/2
-    - ' ipv4 address 78.0.0.7/24'
-    - ' description P7_to_P8'
-    - ' no shutdown'
-    - '!'
-    - root
-    - ''
-    - interface GigabitEthernet0/0/0/3
-    - ' ipv4 address 27.0.0.7/24'
-    - ' description P7_to_P2'
-    - ' no shutdown'
-    - '!'
-    - root
-    - ''
-    - interface GigabitEthernet0/0/0/4
-    - ' ipv4 address 47.0.0.7/24'
-    - ' description P7_to_P4'
-    - ' no shutdown'
-    - '!'
-    - root
-    - ''
-    - router isis IGP
-    - ' is-type level-2-only'
-    - ' net 49.0000.0000.0007.00'
-    - ' log adjacency changes'
-    - ' address-family ipv4 unicast'
-    - '  mpls ldp auto-config'
-    - '  metric-style wide level 2'
-    - ' !'
-    - ' interface Loopback0'
-    - '  passive'
-    - '  address-family ipv4 unicast'
-    - '  !'
-    - ' !'
-    - '  interface GigabitEthernet0/0/0/0'
-    - '  circuit-type level-2-only'
-    - '  point-to-point'
-    - '  hello-padding disable'
-    - '  address-family ipv4 unicast'
-    - '   metric 10'
-    - '  !'
-    - ' !'
-    - '  interface GigabitEthernet0/0/0/1'
-    - '  circuit-type level-2-only'
-    - '  point-to-point'
-    - '  hello-padding disable'
-    - '  address-family ipv4 unicast'
-    - '   metric 10'
-    - '  !'
-    - ' !'
-    - '  interface GigabitEthernet0/0/0/2'
-    - '  circuit-type level-2-only'
-    - '  point-to-point'
-    - '  hello-padding disable'
-    - '  address-family ipv4 unicast'
-    - '   metric 10'
-    - '  !'
-    - ' !'
-    - '  interface GigabitEthernet0/0/0/3'
-    - '  circuit-type level-2-only'
-    - '  point-to-point'
-    - '  hello-padding disable'
-    - '  address-family ipv4 unicast'
-    - '   metric 10'
-    - '  !'
-    - ' !'
-    - '  interface GigabitEthernet0/0/0/4'
     - '  circuit-type level-2-only'
     - '  point-to-point'
     - '  hello-padding disable'
@@ -698,58 +804,37 @@ ok: [PE1] =>
     - '!'
     - ''
     - ''
-ok: [P2] =>
+ok: [P8] =>
   msg:
   - 'template: ip_igp_ldp_template.j2'
   - - ''
-    - hostname P2
+    - hostname P8
     - root
     - ''
     - interface Loopback0
-    - ' ipv4 address 2.2.2.2/32'
+    - ' ipv4 address 8.8.8.8/32'
     - ' description System_Loopback_Interface'
     - ' no shutdown'
     - '!'
     - root
     - ''
-    - interface GigabitEthernet0/0/0/0
-    - ' ipv4 address 23.0.0.2/24'
-    - ' description P2_to_P3'
-    - ' no shutdown'
-    - '!'
-    - root
-    - ''
     - interface GigabitEthernet0/0/0/1
-    - ' ipv4 address 26.0.0.2/24'
-    - ' description P2_to_P6'
+    - ' ipv4 address 48.0.0.8/24'
+    - ' description P8_to_P4'
     - ' no shutdown'
     - '!'
     - root
     - ''
     - interface GigabitEthernet0/0/0/2
-    - ' ipv4 address 12.0.0.2/24'
-    - ' description P2_to_PE1'
-    - ' no shutdown'
-    - '!'
-    - root
-    - ''
-    - interface GigabitEthernet0/0/0/3
-    - ' ipv4 address 27.0.0.2/24'
-    - ' description P2_to_P7'
-    - ' no shutdown'
-    - '!'
-    - root
-    - ''
-    - interface GigabitEthernet0/0/0/5
-    - ' ipv4 address 29.0.0.2/24'
-    - ' description P2_to_P9'
+    - ' ipv4 address 78.0.0.8/24'
+    - ' description P8_to_P7'
     - ' no shutdown'
     - '!'
     - root
     - ''
     - router isis IGP
     - ' is-type level-2-only'
-    - ' net 49.0000.0000.0002.00'
+    - ' net 49.0000.0000.0008.00'
     - ' log adjacency changes'
     - ' address-family ipv4 unicast'
     - '  mpls ldp auto-config'
@@ -784,7 +869,62 @@ ok: [P2] =>
     - '   metric 10'
     - '  !'
     - ' !'
-    - '  interface GigabitEthernet0/0/0/3'
+    - '  !'
+    - root
+    - ''
+    - mpls oam
+    - '!'
+    - mpls ldp
+    - ' log'
+    - '  neighbor'
+    - ' !'
+    - '!'
+    - root
+    - '!'
+    - ''
+    - ''
+ok: [P6] =>
+  msg:
+  - 'template: ip_igp_ldp_template.j2'
+  - - ''
+    - hostname P6
+    - root
+    - ''
+    - interface Loopback0
+    - ' ipv4 address 6.6.6.6/32'
+    - ' description System_Loopback_Interface'
+    - ' no shutdown'
+    - '!'
+    - root
+    - ''
+    - interface GigabitEthernet0/0/0/0
+    - ' ipv4 address 67.0.0.6/24'
+    - ' description P6_to_P7'
+    - ' no shutdown'
+    - '!'
+    - root
+    - ''
+    - interface GigabitEthernet0/0/0/1
+    - ' ipv4 address 26.0.0.6/24'
+    - ' description P6_to_P2'
+    - ' no shutdown'
+    - '!'
+    - root
+    - ''
+    - router isis IGP
+    - ' is-type level-2-only'
+    - ' net 49.0000.0000.0006.00'
+    - ' log adjacency changes'
+    - ' address-family ipv4 unicast'
+    - '  mpls ldp auto-config'
+    - '  metric-style wide level 2'
+    - ' !'
+    - ' interface Loopback0'
+    - '  passive'
+    - '  address-family ipv4 unicast'
+    - '  !'
+    - ' !'
+    - '  interface GigabitEthernet0/0/0/0'
     - '  circuit-type level-2-only'
     - '  point-to-point'
     - '  hello-padding disable'
@@ -792,7 +932,7 @@ ok: [P2] =>
     - '   metric 10'
     - '  !'
     - ' !'
-    - '  interface GigabitEthernet0/0/0/5'
+    - '  interface GigabitEthernet0/0/0/1'
     - '  circuit-type level-2-only'
     - '  point-to-point'
     - '  hello-padding disable'
@@ -915,37 +1055,58 @@ ok: [P4] =>
     - '!'
     - ''
     - ''
-ok: [P8] =>
+ok: [P7] =>
   msg:
   - 'template: ip_igp_ldp_template.j2'
   - - ''
-    - hostname P8
+    - hostname P7
     - root
     - ''
     - interface Loopback0
-    - ' ipv4 address 8.8.8.8/32'
+    - ' ipv4 address 7.7.7.7/32'
     - ' description System_Loopback_Interface'
     - ' no shutdown'
     - '!'
     - root
     - ''
+    - interface GigabitEthernet0/0/0/0
+    - ' ipv4 address 67.0.0.7/24'
+    - ' description P7_to_P6'
+    - ' no shutdown'
+    - '!'
+    - root
+    - ''
     - interface GigabitEthernet0/0/0/1
-    - ' ipv4 address 48.0.0.8/24'
-    - ' description P8_to_P4'
+    - ' ipv4 address 37.0.0.7/24'
+    - ' description P7_to_P7'
     - ' no shutdown'
     - '!'
     - root
     - ''
     - interface GigabitEthernet0/0/0/2
-    - ' ipv4 address 78.0.0.8/24'
-    - ' description P8_to_P7'
+    - ' ipv4 address 78.0.0.7/24'
+    - ' description P7_to_P8'
+    - ' no shutdown'
+    - '!'
+    - root
+    - ''
+    - interface GigabitEthernet0/0/0/3
+    - ' ipv4 address 27.0.0.7/24'
+    - ' description P7_to_P2'
+    - ' no shutdown'
+    - '!'
+    - root
+    - ''
+    - interface GigabitEthernet0/0/0/4
+    - ' ipv4 address 47.0.0.7/24'
+    - ' description P7_to_P4'
     - ' no shutdown'
     - '!'
     - root
     - ''
     - router isis IGP
     - ' is-type level-2-only'
-    - ' net 49.0000.0000.0008.00'
+    - ' net 49.0000.0000.0007.00'
     - ' log adjacency changes'
     - ' address-family ipv4 unicast'
     - '  mpls ldp auto-config'
@@ -980,6 +1141,22 @@ ok: [P8] =>
     - '   metric 10'
     - '  !'
     - ' !'
+    - '  interface GigabitEthernet0/0/0/3'
+    - '  circuit-type level-2-only'
+    - '  point-to-point'
+    - '  hello-padding disable'
+    - '  address-family ipv4 unicast'
+    - '   metric 10'
+    - '  !'
+    - ' !'
+    - '  interface GigabitEthernet0/0/0/4'
+    - '  circuit-type level-2-only'
+    - '  point-to-point'
+    - '  hello-padding disable'
+    - '  address-family ipv4 unicast'
+    - '   metric 10'
+    - '  !'
+    - ' !'
     - '  !'
     - root
     - ''
@@ -996,14 +1173,14 @@ ok: [P8] =>
     - ''
 
 TASK [1.1 RENDER AND SAVE THE IP, ISIS & LDP CONFIGURATION] ********************
-ok: [PE5]
 ok: [P2]
 ok: [P3]
-ok: [P6]
-ok: [P4]
-ok: [P7]
 ok: [PE1]
 ok: [P8]
+ok: [PE5]
+ok: [P7]
+ok: [P6]
+ok: [P4]
 Pausing for 1 seconds
 (ctrl+C then 'C' = continue early, ctrl+C then 'A' = abort)
 
@@ -1013,24 +1190,24 @@ ok: [PE1]
 TASK [1.2 DISPLAY THE OUTPUT REGISTERED IN THE PREVIOUS TASK] ******************
 ok: [PE1] =>
   output.dest: xrcfg/PE1.ip_mpls.xrcfg
+ok: [P3] =>
+  output.dest: xrcfg/P3.ip_mpls.xrcfg
+ok: [P6] =>
+  output.dest: xrcfg/P6.ip_mpls.xrcfg
 ok: [P2] =>
   output.dest: xrcfg/P2.ip_mpls.xrcfg
 ok: [PE5] =>
   output.dest: xrcfg/PE5.ip_mpls.xrcfg
-ok: [P3] =>
-  output.dest: xrcfg/P3.ip_mpls.xrcfg
-ok: [P7] =>
-  output.dest: xrcfg/P7.ip_mpls.xrcfg
-ok: [P6] =>
-  output.dest: xrcfg/P6.ip_mpls.xrcfg
 ok: [P4] =>
   output.dest: xrcfg/P4.ip_mpls.xrcfg
+ok: [P7] =>
+  output.dest: xrcfg/P7.ip_mpls.xrcfg
 ok: [P8] =>
   output.dest: xrcfg/P8.ip_mpls.xrcfg
 
 TASK [1.3 RENDER AND APPLY THE IP, ISIS & LDP CONFIGURATION] *******************
-changed: [PE1]
 changed: [PE5]
+changed: [PE1]
 changed: [P6]
 changed: [P8]
 changed: [P3]
@@ -1069,13 +1246,13 @@ ok: [PE1] => (item=ping 12.0.0.2) =>
   - - - Type escape sequence to abort.
       - 'Sending 5, 100-byte ICMP Echos to 12.0.0.2, timeout is 2 seconds:'
       - '!!!!!'
-      - Success rate is 100 percent (5/5), round-trip min/avg/max = 1/3/8 ms
+      - Success rate is 100 percent (5/5), round-trip min/avg/max = 1/2/4 ms
 ok: [PE1] => (item=show isis adjacency) =>
   msg:
   - - - 'IS-IS IGP Level-2 adjacencies:'
       - System Id      Interface                SNPA           State Hold Changed  NSF IPv4 IPv6
       - '                                                                               BFD  BFD '
-      - P2             Gi0/0/0/2                *PtoP*         Up    28   00:02:06 Yes None None
+      - P2             Gi0/0/0/2                *PtoP*         Up    26   00:02:12 Yes None None
       - ''
       - 'Total adjacency count: 1'
 ok: [PE1] => (item=show route) =>
@@ -1092,42 +1269,42 @@ ok: [PE1] => (item=show route) =>
       - ''
       - Gateway of last resort is not set
       - ''
-      - L    1.1.1.1/32 is directly connected, 00:02:13, Loopback0
-      - i L2 2.2.2.2/32 [115/10] via 12.0.0.2, 00:01:56, GigabitEthernet0/0/0/2
-      - i L2 3.3.3.3/32 [115/20] via 12.0.0.2, 00:01:48, GigabitEthernet0/0/0/2
-      - i L2 4.4.4.4/32 [115/30] via 12.0.0.2, 00:01:48, GigabitEthernet0/0/0/2
-      - i L2 5.5.5.5/32 [115/40] via 12.0.0.2, 00:01:48, GigabitEthernet0/0/0/2
-      - i L2 6.6.6.6/32 [115/20] via 12.0.0.2, 00:01:48, GigabitEthernet0/0/0/2
-      - i L2 7.7.7.7/32 [115/20] via 12.0.0.2, 00:01:48, GigabitEthernet0/0/0/2
-      - i L2 8.8.8.8/32 [115/30] via 12.0.0.2, 00:01:48, GigabitEthernet0/0/0/2
-      - C    12.0.0.0/24 is directly connected, 00:02:13, GigabitEthernet0/0/0/2
-      - L    12.0.0.1/32 is directly connected, 00:02:13, GigabitEthernet0/0/0/2
-      - i L2 23.0.0.0/24 [115/20] via 12.0.0.2, 00:01:56, GigabitEthernet0/0/0/2
-      - i L2 26.0.0.0/24 [115/20] via 12.0.0.2, 00:01:56, GigabitEthernet0/0/0/2
-      - i L2 27.0.0.0/24 [115/20] via 12.0.0.2, 00:01:56, GigabitEthernet0/0/0/2
-      - i L2 29.0.0.0/24 [115/20] via 12.0.0.2, 00:01:56, GigabitEthernet0/0/0/2
-      - i L2 34.0.0.0/24 [115/30] via 12.0.0.2, 00:01:48, GigabitEthernet0/0/0/2
-      - i L2 37.0.0.0/24 [115/30] via 12.0.0.2, 00:01:48, GigabitEthernet0/0/0/2
-      - i L2 39.0.0.0/24 [115/30] via 12.0.0.2, 00:01:48, GigabitEthernet0/0/0/2
-      - i L2 45.0.0.0/24 [115/40] via 12.0.0.2, 00:01:48, GigabitEthernet0/0/0/2
-      - i L2 47.0.0.0/24 [115/30] via 12.0.0.2, 00:01:48, GigabitEthernet0/0/0/2
-      - i L2 48.0.0.0/24 [115/40] via 12.0.0.2, 00:01:48, GigabitEthernet0/0/0/2
-      - i L2 67.0.0.0/24 [115/30] via 12.0.0.2, 00:01:48, GigabitEthernet0/0/0/2
-      - i L2 78.0.0.0/24 [115/30] via 12.0.0.2, 00:01:48, GigabitEthernet0/0/0/2
-      - L    127.0.0.0/8 [0/0] via 0.0.0.0, 00:02:13
-      - C    192.168.18.0/24 is directly connected, 00:53:54, MgmtEth0/RP0/CPU0/0
-      - L    192.168.18.1/32 is directly connected, 00:53:54, MgmtEth0/RP0/CPU0/0
+      - L    1.1.1.1/32 is directly connected, 00:02:20, Loopback0
+      - i L2 2.2.2.2/32 [115/10] via 12.0.0.2, 00:02:03, GigabitEthernet0/0/0/2
+      - i L2 3.3.3.3/32 [115/20] via 12.0.0.2, 00:01:55, GigabitEthernet0/0/0/2
+      - i L2 4.4.4.4/32 [115/30] via 12.0.0.2, 00:01:55, GigabitEthernet0/0/0/2
+      - i L2 5.5.5.5/32 [115/40] via 12.0.0.2, 00:01:55, GigabitEthernet0/0/0/2
+      - i L2 6.6.6.6/32 [115/20] via 12.0.0.2, 00:01:55, GigabitEthernet0/0/0/2
+      - i L2 7.7.7.7/32 [115/20] via 12.0.0.2, 00:01:55, GigabitEthernet0/0/0/2
+      - i L2 8.8.8.8/32 [115/30] via 12.0.0.2, 00:01:55, GigabitEthernet0/0/0/2
+      - C    12.0.0.0/24 is directly connected, 00:02:20, GigabitEthernet0/0/0/2
+      - L    12.0.0.1/32 is directly connected, 00:02:20, GigabitEthernet0/0/0/2
+      - i L2 23.0.0.0/24 [115/20] via 12.0.0.2, 00:02:03, GigabitEthernet0/0/0/2
+      - i L2 26.0.0.0/24 [115/20] via 12.0.0.2, 00:02:03, GigabitEthernet0/0/0/2
+      - i L2 27.0.0.0/24 [115/20] via 12.0.0.2, 00:02:03, GigabitEthernet0/0/0/2
+      - i L2 29.0.0.0/24 [115/20] via 12.0.0.2, 00:02:03, GigabitEthernet0/0/0/2
+      - i L2 34.0.0.0/24 [115/30] via 12.0.0.2, 00:01:55, GigabitEthernet0/0/0/2
+      - i L2 37.0.0.0/24 [115/30] via 12.0.0.2, 00:01:55, GigabitEthernet0/0/0/2
+      - i L2 39.0.0.0/24 [115/30] via 12.0.0.2, 00:01:55, GigabitEthernet0/0/0/2
+      - i L2 45.0.0.0/24 [115/40] via 12.0.0.2, 00:01:55, GigabitEthernet0/0/0/2
+      - i L2 47.0.0.0/24 [115/30] via 12.0.0.2, 00:01:55, GigabitEthernet0/0/0/2
+      - i L2 48.0.0.0/24 [115/40] via 12.0.0.2, 00:01:55, GigabitEthernet0/0/0/2
+      - i L2 67.0.0.0/24 [115/30] via 12.0.0.2, 00:01:55, GigabitEthernet0/0/0/2
+      - i L2 78.0.0.0/24 [115/30] via 12.0.0.2, 00:01:55, GigabitEthernet0/0/0/2
+      - L    127.0.0.0/8 [0/0] via 0.0.0.0, 00:02:20
+      - C    192.168.18.0/24 is directly connected, 01:55:13, MgmtEth0/RP0/CPU0/0
+      - L    192.168.18.1/32 is directly connected, 01:55:13, MgmtEth0/RP0/CPU0/0
 ok: [PE1] => (item=show isis route 5.5.5.5/32 detail) =>
   msg:
   - - - 'L2 5.5.5.5/32 [40/115] Label: None, medium priority'
-      - '   Installed Mar 07 07:47:58.351 for 00:01:50'
+      - '   Installed Mar 16 16:23:12.244 for 00:01:58'
       - '     via 12.0.0.2, GigabitEthernet0/0/0/2, P2, Weight: 0'
       - '     src PE5.00-00, 5.5.5.5'
 ok: [PE1] => (item=show route 5.5.5.5/32 detail) =>
   msg:
   - - - Routing entry for 5.5.5.5/32
       - '  Known via "isis IGP", distance 115, metric 40, type level-2'
-      - '  Installed Mar  7 07:47:58.353 for 00:01:50'
+      - '  Installed Mar 16 16:23:12.248 for 00:02:00'
       - '  Routing Descriptor Blocks'
       - '    12.0.0.2, from 5.5.5.5, via GigabitEthernet0/0/0/2'
       - '      Route metric is 40'
@@ -1144,14 +1321,14 @@ ok: [PE1] => (item=show route 5.5.5.5/32 detail) =>
       - '  Flow-tag: Not Set'
       - '  Fwd-class: Not Set'
       - '  Route Priority: RIB_PRIORITY_NON_RECURSIVE_MEDIUM (7) SVD Type RIB_SVD_TYPE_LOCAL'
-      - '  Download Priority 1, Download Version 450'
+      - '  Download Priority 1, Download Version 451'
       - '  No advertising protos.'
 ok: [PE1] => (item=show mpls ldp neighbor brief) =>
   msg:
   - - - 'Peer               GR  NSR  Up Time     Discovery   Addresses     Labels    '
       - '                                        ipv4  ipv6  ipv4  ipv6  ipv4   ipv6 '
       - '-----------------  --  ---  ----------  ----------  ----------  ------------'
-      - 2.2.2.2:0          N   N    00:01:52    1     0     7     0     22     0
+      - 2.2.2.2:0          N   N    00:02:03    1     0     7     0     22     0
 ok: [PE1] => (item=show mpls label table) =>
   msg:
   - - - Table Label   Owner                           State  Rewrite
@@ -1169,7 +1346,6 @@ ok: [PE1] => (item=show mpls label table) =>
       - 0     24006   LDP(A)                          InUse  Yes
       - 0     24007   LDP(A)                          InUse  Yes
       - 0     24008   LDP(A)                          InUse  Yes
-      - 0     24009   LDP(A)                          InUse  Yes
       - 0     24010   LDP(A)                          InUse  Yes
       - 0     24011   LDP(A)                          InUse  Yes
       - 0     24012   LDP(A)                          InUse  Yes
@@ -1179,12 +1355,13 @@ ok: [PE1] => (item=show mpls label table) =>
       - 0     24016   LDP(A)                          InUse  Yes
       - 0     24017   LDP(A)                          InUse  Yes
       - 0     24018   LDP(A)                          InUse  Yes
+      - 0     24022   LDP(A)                          InUse  Yes
 ok: [PE1] => (item=show mpls forwarding) =>
   msg:
   - - - 'Local  Outgoing    Prefix             Outgoing     Next Hop        Bytes       '
       - 'Label  Label       or ID              Interface                    Switched    '
       - '------ ----------- ------------------ ------------ --------------- ------------'
-      - '24000  Pop         2.2.2.2/32         Gi0/0/0/2    12.0.0.2        632         '
+      - '24000  Pop         2.2.2.2/32         Gi0/0/0/2    12.0.0.2        694         '
       - '24001  Pop         29.0.0.0/24        Gi0/0/0/2    12.0.0.2        0           '
       - '24002  Pop         27.0.0.0/24        Gi0/0/0/2    12.0.0.2        0           '
       - '24003  Pop         26.0.0.0/24        Gi0/0/0/2    12.0.0.2        0           '
@@ -1193,7 +1370,6 @@ ok: [PE1] => (item=show mpls forwarding) =>
       - '24006  24001       6.6.6.6/32         Gi0/0/0/2    12.0.0.2        0           '
       - '24007  24000       7.7.7.7/32         Gi0/0/0/2    12.0.0.2        0           '
       - '24008  24010       4.4.4.4/32         Gi0/0/0/2    12.0.0.2        0           '
-      - '24009  24012       8.8.8.8/32         Gi0/0/0/2    12.0.0.2        0           '
       - '24010  24011       5.5.5.5/32         Gi0/0/0/2    12.0.0.2        0           '
       - '24011  24007       39.0.0.0/24        Gi0/0/0/2    12.0.0.2        0           '
       - '24012  24006       67.0.0.0/24        Gi0/0/0/2    12.0.0.2        0           '
@@ -1202,22 +1378,23 @@ ok: [PE1] => (item=show mpls forwarding) =>
       - '24015  24009       34.0.0.0/24        Gi0/0/0/2    12.0.0.2        0           '
       - '24016  24004       78.0.0.0/24        Gi0/0/0/2    12.0.0.2        0           '
       - '24017  24014       48.0.0.0/24        Gi0/0/0/2    12.0.0.2        0           '
-      - 24018  24013       45.0.0.0/24        Gi0/0/0/2    12.0.0.2        0
+      - '24018  24013       45.0.0.0/24        Gi0/0/0/2    12.0.0.2        0           '
+      - 24022  24030       8.8.8.8/32         Gi0/0/0/2    12.0.0.2        0
 ok: [PE1] => (item=show cef 5.5.5.5/32) =>
   msg:
-  - - - 5.5.5.5/32, version 277, internal 0x1000001 0x30 (ptr 0x87192960) [1], 0x600 (0x87846800), 0xa28 (0x89170f48)
-      - ' Updated Mar  7 07:47:58.361 '
+  - - - 5.5.5.5/32, version 290, internal 0x1000001 0x30 (ptr 0x87183960) [1], 0x600 (0x87846410), 0xa28 (0x89170ac8)
+      - ' Updated Mar 16 16:23:12.255 '
       - ' local adjacency to GigabitEthernet0/0/0/2'
       - ''
       - ' Prefix Len 32, traffic index 0, precedence n/a, priority 3'
       - '  gateway array (0x876adaf0) reference count 42, flags 0x68, source lsd (5), 1 backups'
       - '                [15 type 5 flags 0x8401 (0x891af8e8) ext 0x0 (0x0)]'
-      - '  LW-LDI[type=5, refc=3, ptr=0x87846800, sh-ldi=0x891af8e8]'
-      - '  gateway array update type-time 1 Mar  7 07:47:58.361'
-      - ' LDI Update time Mar  7 07:47:58.361'
-      - ' LW-LDI-TS Mar  7 07:47:58.361'
+      - '  LW-LDI[type=5, refc=3, ptr=0x87846410, sh-ldi=0x891af8e8]'
+      - '  gateway array update type-time 1 Mar 16 16:23:12.255'
+      - ' LDI Update time Mar 16 16:23:12.255'
+      - ' LW-LDI-TS Mar 16 16:23:12.255'
       - '   via 12.0.0.2/32, GigabitEthernet0/0/0/2, 5 dependencies, weight 0, class 0 [flags 0x0]'
-      - '    path-idx 0 NHID 0x1 [0x895d2830 0x0]'
+      - '    path-idx 0 NHID 0x1 [0x893ba830 0x0]'
       - '    next hop 12.0.0.2/32'
       - '    local adjacency'
       - '     local label 24010      labels imposed {24011}'
@@ -1242,9 +1419,9 @@ ok: [PE1] => (item=traceroute mpls ipv4 5.5.5.5/32) =>
       - ''
       - '  0 12.0.0.1 MRU 1500 [Labels: 24011 Exp: 0]'
       - 'L 1 12.0.0.2 MRU 1500 [Labels: 24012 Exp: 0] 10 ms'
-      - 'L 2 23.0.0.3 MRU 1500 [Labels: 24002 Exp: 0] 10 ms'
-      - 'L 3 34.0.0.4 MRU 1500 [Labels: implicit-null Exp: 0] 10 ms'
-      - '! 4 45.0.0.5 8 ms'
+      - 'L 2 23.0.0.3 MRU 1500 [Labels: 24002 Exp: 0] 11 ms'
+      - 'L 3 34.0.0.4 MRU 1500 [Labels: implicit-null Exp: 0] 12 ms'
+      - '! 4 45.0.0.5 10 ms'
 ok: [PE1] => (item=traceroute mpls multipath ipv4 5.5.5.5/32 verbose) =>
   msg:
   - - - Starting LSP Path Discovery for 5.5.5.5/32
@@ -1281,14 +1458,14 @@ ok: [PE1] => (item=traceroute mpls multipath ipv4 5.5.5.5/32 verbose) =>
       - Paths (found/broken/unexplored) (2/0/0)
       - ' Echo Request (sent/fail) (7/0)'
       - ' Echo Reply (received/timeout) (7/0)'
-      - ' Total Time Elapsed 52 ms'
+      - ' Total Time Elapsed 56 ms'
 
 TASK [1.6 RUN COMMANDS TO TRACE LABELS FROM PE1 TO PE5] ************************
 ok: [PE1]
-ok: [P4]
 ok: [P3]
 ok: [P7]
 ok: [P2]
+ok: [P4]
 
 PLAY [1.x CISCO XRV9K SR WITH TI-LFA LAB PLAYBOOK - GETTING STARTED] ***********
 
@@ -1336,7 +1513,7 @@ ok: [P4] =>
   - - 'Local  Outgoing    Prefix             Outgoing     Next Hop        Bytes       '
     - 'Label  Label       or ID              Interface                    Switched    '
     - '------ ----------- ------------------ ------------ --------------- ------------'
-    - 24002  Pop         5.5.5.5/32         Gi0/0/0/0    45.0.0.5        786
+    - 24002  Pop         5.5.5.5/32         Gi0/0/0/0    45.0.0.5        892
 
 PLAY [2. CISCO XRV9K SR WITH TI-LFA LAB PLAYBOOK - INTRODUCE SEGMENT ROUTING] ***
 
@@ -1418,11 +1595,11 @@ ok: [P6] =>
     - ''
 
 TASK [2.1 RENDER AND SAVE THE SEGMENT ROUTING CONFIGURATION] *******************
-ok: [PE1]
 ok: [P3]
-ok: [P7]
+ok: [PE1]
 ok: [P2]
 ok: [P6]
+ok: [P7]
 Pausing for 1 seconds
 (ctrl+C then 'C' = continue early, ctrl+C then 'A' = abort)
 
@@ -1434,19 +1611,19 @@ ok: [PE1] =>
   output.dest: xrcfg/PE1.sr.xrcfg
 ok: [P2] =>
   output.dest: xrcfg/P2.sr.xrcfg
-ok: [P6] =>
-  output.dest: xrcfg/P6.sr.xrcfg
 ok: [P3] =>
   output.dest: xrcfg/P3.sr.xrcfg
 ok: [P7] =>
   output.dest: xrcfg/P7.sr.xrcfg
+ok: [P6] =>
+  output.dest: xrcfg/P6.sr.xrcfg
 
 TASK [2.3 RENDER AND APPLY THE SEGMENT ROUTING CONFIGURATION] ******************
-changed: [P6]
-changed: [PE1]
-changed: [P7]
-changed: [P3]
 changed: [P2]
+changed: [P3]
+changed: [PE1]
+changed: [P6]
+changed: [P7]
 Pausing for 60 seconds
 (ctrl+C then 'C' = continue early, ctrl+C then 'A' = abort)
 
@@ -1493,8 +1670,6 @@ ok: [PE1] => (item=show mpls label table detail) =>
       - '  (IPv4, vers:0, ''default'':4U, 7.7.7.7/32)'
       - 0     24008   LDP(A)                          InUse  Yes
       - '  (IPv4, vers:0, ''default'':4U, 4.4.4.4/32)'
-      - 0     24009   LDP(A)                          InUse  Yes
-      - '  (IPv4, vers:0, ''default'':4U, 8.8.8.8/32)'
       - 0     24010   LDP(A)                          InUse  Yes
       - '  (IPv4, vers:0, ''default'':4U, 5.5.5.5/32)'
       - 0     24011   LDP(A)                          InUse  Yes
@@ -1517,12 +1692,14 @@ ok: [PE1] => (item=show mpls label table detail) =>
       - '  (SR Adj Segment IPv4, vers:0, index=1, type=0, intf=Gi0/0/0/2, nh=12.0.0.2)'
       - 0     24020   ISIS(A):IGP                     InUse  Yes
       - '  (SR Adj Segment IPv4, vers:0, index=3, type=0, intf=Gi0/0/0/2, nh=12.0.0.2)'
+      - 0     24022   LDP(A)                          InUse  Yes
+      - '  (IPv4, vers:0, ''default'':4U, 8.8.8.8/32)'
 ok: [PE1] => (item=show isis adjacency detail) =>
   msg:
   - - - 'IS-IS IGP Level-2 adjacencies:'
       - System Id      Interface                SNPA           State Hold Changed  NSF IPv4 IPv6
       - '                                                                               BFD  BFD '
-      - P2             Gi0/0/0/2                *PtoP*         Up    24   00:03:46 Yes None None
+      - P2             Gi0/0/0/2                *PtoP*         Up    23   00:04:41 Yes None None
       - '  Area Address:           49'
       - '  Neighbor IPv4 Address:  12.0.0.2*'
       - '  Adjacency SID:          24019'
@@ -1535,16 +1712,16 @@ ok: [PE1] => (item=show isis database verbose PE1) =>
   msg:
   - - - IS-IS IGP (Level-2) Link State Database
       - LSPID                 LSP Seq Num  LSP Checksum  LSP Holdtime/Rcvd  ATT/P/OL
-      - PE1.00-00           * 0x00000007   0x9cca        1144 /*            0/0/0
+      - PE1.00-00           * 0x00000007   0xdd89        1136 /*            0/0/0
       - '  Area Address:   49'
       - '  NLPID:          0xcc'
       - '  IP Address:     1.1.1.1'
       - '  Hostname:       PE1'
-      - '  Metric: 10         IP-Extended 12.0.0.0/24'
-      - '    Prefix Attribute Flags: X:0 R:0 N:0 E:0 A:0'
       - '  Metric: 0          IP-Extended 1.1.1.1/32'
       - '    Prefix-SID Index: 1, Algorithm:0, R:0 N:1 P:0 E:0 V:0 L:0'
       - '    Prefix Attribute Flags: X:0 R:0 N:1 E:0 A:0'
+      - '  Metric: 10         IP-Extended 12.0.0.0/24'
+      - '    Prefix Attribute Flags: X:0 R:0 N:0 E:0 A:0'
       - '  Router Cap:     1.1.1.1 D:0 S:0'
       - '    Segment Routing: I:1 V:0, SRGB Base: 16000 Range: 8000'
       - '    Node Maximum SID Depth: '
@@ -1553,7 +1730,7 @@ ok: [PE1] => (item=show isis database verbose PE1) =>
       - '      Algorithm: 0'
       - '      Algorithm: 1'
       - '  Metric: 10         IS-Extended P2.00'
-      - '    Local Interface ID: 3, Remote Interface ID: 6'
+      - '    Local Interface ID: 4, Remote Interface ID: 5'
       - '    Interface IP Address: 12.0.0.1'
       - '    Neighbor IP Address: 12.0.0.2'
       - '    Physical BW: 1000000 kbits/sec'
@@ -1574,7 +1751,7 @@ ok: [PE1] => (item=show route 7.7.7.7/32 detail) =>
   msg:
   - - - Routing entry for 7.7.7.7/32
       - '  Known via "isis IGP", distance 115, metric 20, labeled SR, type level-2'
-      - '  Installed Mar  7 07:50:32.134 for 00:00:55'
+      - '  Installed Mar 16 16:26:38.360 for 00:01:03'
       - '  Routing Descriptor Blocks'
       - '    12.0.0.2, from 7.7.7.7, via GigabitEthernet0/0/0/2'
       - '      Route metric is 20'
@@ -1591,7 +1768,7 @@ ok: [PE1] => (item=show route 7.7.7.7/32 detail) =>
       - '  Flow-tag: Not Set'
       - '  Fwd-class: Not Set'
       - '  Route Priority: RIB_PRIORITY_NON_RECURSIVE_MEDIUM (7) SVD Type RIB_SVD_TYPE_LOCAL'
-      - '  Download Priority 1, Download Version 581'
+      - '  Download Priority 1, Download Version 579'
       - '  No advertising protos.'
 ok: [PE1] => (item=show mpls forwarding) =>
   msg:
@@ -1611,7 +1788,6 @@ ok: [PE1] => (item=show mpls forwarding) =>
       - '24006  24001       6.6.6.6/32         Gi0/0/0/2    12.0.0.2        0           '
       - '24007  24000       7.7.7.7/32         Gi0/0/0/2    12.0.0.2        0           '
       - '24008  24010       4.4.4.4/32         Gi0/0/0/2    12.0.0.2        0           '
-      - '24009  24012       8.8.8.8/32         Gi0/0/0/2    12.0.0.2        0           '
       - '24010  24011       5.5.5.5/32         Gi0/0/0/2    12.0.0.2        0           '
       - '24011  24007       39.0.0.0/24        Gi0/0/0/2    12.0.0.2        0           '
       - '24012  24006       67.0.0.0/24        Gi0/0/0/2    12.0.0.2        0           '
@@ -1622,23 +1798,24 @@ ok: [PE1] => (item=show mpls forwarding) =>
       - '24017  24014       48.0.0.0/24        Gi0/0/0/2    12.0.0.2        0           '
       - '24018  24013       45.0.0.0/24        Gi0/0/0/2    12.0.0.2        0           '
       - '24019  Pop         SR Adj (idx 1)     Gi0/0/0/2    12.0.0.2        0           '
-      - 24020  Pop         SR Adj (idx 3)     Gi0/0/0/2    12.0.0.2        0
+      - '24020  Pop         SR Adj (idx 3)     Gi0/0/0/2    12.0.0.2        0           '
+      - 24022  24030       8.8.8.8/32         Gi0/0/0/2    12.0.0.2        0
 ok: [PE1] => (item=show cef 7.7.7.7/32) =>
   msg:
-  - - - 7.7.7.7/32, version 348, labeled SR, internal 0x1000001 0x8130 (ptr 0x87192c48) [1], 0x600 (0x87846920), 0xa28 (0x89170d08)
-      - ' Updated Mar  7 07:50:32.138 '
+  - - - 7.7.7.7/32, version 360, labeled SR, internal 0x1000001 0x8130 (ptr 0x87183c48) [1], 0x600 (0x878469b0), 0xa28 (0x891703a8)
+      - ' Updated Mar 16 16:26:38.371 '
       - ' local adjacency to GigabitEthernet0/0/0/2'
       - ''
       - ' Prefix Len 32, traffic index 0, precedence n/a, priority 3'
       - ' Extensions: context-label:16007'
-      - '  gateway array (0x876adcc0) reference count 9, flags 0x68, source lsd (5), 1 backups'
-      - '                [4 type 5 flags 0x8401 (0x891af528) ext 0x0 (0x0)]'
-      - '  LW-LDI[type=5, refc=3, ptr=0x87846920, sh-ldi=0x891af528]'
-      - '  gateway array update type-time 1 Mar  7 07:50:30.538'
-      - ' LDI Update time Mar  7 07:50:30.538'
-      - ' LW-LDI-TS Mar  7 07:50:32.138'
+      - '  gateway array (0x876ad920) reference count 9, flags 0x68, source lsd (5), 1 backups'
+      - '                [4 type 5 flags 0x8401 (0x891af468) ext 0x0 (0x0)]'
+      - '  LW-LDI[type=5, refc=3, ptr=0x878469b0, sh-ldi=0x891af468]'
+      - '  gateway array update type-time 1 Mar 16 16:26:38.371'
+      - ' LDI Update time Mar 16 16:26:38.371'
+      - ' LW-LDI-TS Mar 16 16:26:38.371'
       - '   via 12.0.0.2/32, GigabitEthernet0/0/0/2, 15 dependencies, weight 0, class 0 [flags 0x0]'
-      - '    path-idx 0 NHID 0x1 [0x895d2830 0x0]'
+      - '    path-idx 0 NHID 0x1 [0x893ba830 0x0]'
       - '    next hop 12.0.0.2/32'
       - '    local adjacency'
       - '     local label 24007      labels imposed {24000}'
@@ -1662,8 +1839,8 @@ ok: [PE1] => (item=traceroute mpls ipv4 7.7.7.7/32) =>
       - Type escape sequence to abort.
       - ''
       - '  0 12.0.0.1 MRU 1500 [Labels: 24000 Exp: 0]'
-      - 'L 1 12.0.0.2 MRU 1500 [Labels: implicit-null Exp: 0] 5 ms'
-      - '! 2 27.0.0.7 7 ms'
+      - 'L 1 12.0.0.2 MRU 1500 [Labels: implicit-null Exp: 0] 6 ms'
+      - '! 2 27.0.0.7 6 ms'
 ok: [PE1] => (item=traceroute sr-mpls 7.7.7.7/32) =>
   msg:
   - - - Tracing MPLS Label Switched Path to 7.7.7.7/32, timeout is 2 seconds
@@ -1680,10 +1857,10 @@ ok: [PE1] => (item=traceroute sr-mpls 7.7.7.7/32) =>
       - ''
       - '  0 12.0.0.1 MRU 1500 [Labels: 16007 Exp: 0]'
       - 'L 1 12.0.0.2 MRU 1500 [Labels: implicit-null Exp: 0] 6 ms'
-      - '! 2 27.0.0.7 5 ms'
+      - '! 2 27.0.0.7 7 ms'
 
 TASK [2.6 RENDER AND DISPLAY THE SR-PREFER CONFIGURATION] **********************
-ok: [P3] =>
+ok: [P2] =>
   msg:
   - 'template: sr_prefer_template.j2'
   - - router isis IGP
@@ -1693,7 +1870,7 @@ ok: [P3] =>
     - '!'
     - ''
     - ''
-ok: [P2] =>
+ok: [P3] =>
   msg:
   - 'template: sr_prefer_template.j2'
   - - router isis IGP
@@ -1713,7 +1890,7 @@ ok: [PE1] =>
     - '!'
     - ''
     - ''
-ok: [P7] =>
+ok: [P6] =>
   msg:
   - 'template: sr_prefer_template.j2'
   - - router isis IGP
@@ -1723,7 +1900,7 @@ ok: [P7] =>
     - '!'
     - ''
     - ''
-ok: [P6] =>
+ok: [P7] =>
   msg:
   - 'template: sr_prefer_template.j2'
   - - router isis IGP
@@ -1735,11 +1912,11 @@ ok: [P6] =>
     - ''
 
 TASK [2.7 RENDER AND SAVE THE SR-PREFER CONFIGURATION] *************************
-ok: [P2]
 ok: [PE1]
-ok: [P3]
-ok: [P7]
 ok: [P6]
+ok: [P2]
+ok: [P7]
+ok: [P3]
 Pausing for 1 seconds
 (ctrl+C then 'C' = continue early, ctrl+C then 'A' = abort)
 
@@ -1749,21 +1926,21 @@ ok: [PE1]
 TASK [2.8 DISPLAY THE OUTPUT REGISTERED IN THE PREVIOUS TASK] ******************
 ok: [P3] =>
   output.dest: xrcfg/P3.srprefer.xrcfg
-ok: [P6] =>
-  output.dest: xrcfg/P6.srprefer.xrcfg
 ok: [PE1] =>
   output.dest: xrcfg/PE1.srprefer.xrcfg
 ok: [P7] =>
   output.dest: xrcfg/P7.srprefer.xrcfg
+ok: [P6] =>
+  output.dest: xrcfg/P6.srprefer.xrcfg
 ok: [P2] =>
   output.dest: xrcfg/P2.srprefer.xrcfg
 
 TASK [2.9 RENDER AND APPLY THE SR-PREFER CONFIGURATION] ************************
+changed: [P3]
 changed: [PE1]
 changed: [P6]
-changed: [P7]
 changed: [P2]
-changed: [P3]
+changed: [P7]
 Pausing for 60 seconds
 (ctrl+C then 'C' = continue early, ctrl+C then 'A' = abort)
 
@@ -1790,7 +1967,7 @@ ok: [PE1] => (item=traceroute mpls ipv4 7.7.7.7/32) =>
       - Type escape sequence to abort.
       - ''
       - '  0 12.0.0.1 MRU 1500 [Labels: 16007 Exp: 0]'
-      - 'L 1 12.0.0.2 MRU 1500 [Labels: implicit-null Exp: 0] 7 ms'
+      - 'L 1 12.0.0.2 MRU 1500 [Labels: implicit-null Exp: 0] 8 ms'
       - '! 2 27.0.0.7 6 ms'
 ok: [PE1] => (item=traceroute mpls ipv4 5.5.5.5/32) =>
   msg:
@@ -1807,10 +1984,10 @@ ok: [PE1] => (item=traceroute mpls ipv4 5.5.5.5/32) =>
       - Type escape sequence to abort.
       - ''
       - '  0 12.0.0.1 MRU 1500 [Labels: 24011 Exp: 0]'
-      - 'L 1 12.0.0.2 MRU 1500 [Labels: 24012 Exp: 0] 6 ms'
-      - 'L 2 23.0.0.3 MRU 1500 [Labels: 24002 Exp: 0] 10 ms'
+      - 'L 1 12.0.0.2 MRU 1500 [Labels: 24012 Exp: 0] 5 ms'
+      - 'L 2 23.0.0.3 MRU 1500 [Labels: 24002 Exp: 0] 7 ms'
       - 'L 3 34.0.0.4 MRU 1500 [Labels: implicit-null Exp: 0] 10 ms'
-      - '! 4 45.0.0.5 10 ms'
+      - '! 4 45.0.0.5 11 ms'
 
 PLAY [3. CISCO XRV9K SR WITH TI-LFA LAB PLAYBOOK - SR <-> LDP INTERWORKING] ****
 
@@ -1825,7 +2002,7 @@ ok: [P2] =>
     - '!'
     - ''
     - ''
-ok: [PE1] =>
+ok: [P6] =>
   msg:
   - 'template: sr_ldp_template.j2'
   - - router isis IGP
@@ -1835,7 +2012,7 @@ ok: [PE1] =>
     - '!'
     - ''
     - ''
-ok: [P6] =>
+ok: [PE1] =>
   msg:
   - 'template: sr_ldp_template.j2'
   - - router isis IGP
@@ -1847,9 +2024,9 @@ ok: [P6] =>
     - ''
 
 TASK [3.1 RENDER AND SAVE THE LDP REMOVAL CONFIGURATION] ***********************
+changed: [P6]
 changed: [PE1]
 changed: [P2]
-changed: [P6]
 Pausing for 1 seconds
 (ctrl+C then 'C' = continue early, ctrl+C then 'A' = abort)
 
@@ -1857,17 +2034,17 @@ TASK [1 secs PAUSE FOR CONVERGENCE] ********************************************
 ok: [PE1]
 
 TASK [3.2 DISPLAY THE OUTPUT REGISTERED IN THE PREVIOUS TASK] ******************
-ok: [P2] =>
-  output.dest: xrcfg/P2.noldp.xrcfg
 ok: [PE1] =>
   output.dest: xrcfg/PE1.noldp.xrcfg
+ok: [P2] =>
+  output.dest: xrcfg/P2.noldp.xrcfg
 ok: [P6] =>
   output.dest: xrcfg/P6.noldp.xrcfg
 
 TASK [3.3 RENDER AND APPLY THE LDP REMOVAL CONFIGURATION] **********************
 changed: [P2]
-changed: [PE1]
 changed: [P6]
+changed: [PE1]
 Pausing for 60 seconds
 (ctrl+C then 'C' = continue early, ctrl+C then 'A' = abort)
 
@@ -1915,10 +2092,10 @@ ok: [PE5] => (item=traceroute mpls ipv4 1.1.1.1/32) =>
       - ''
       - Type escape sequence to abort.
       - ''
-      - '  0 45.0.0.5 MRU 1500 [Labels: 24011 Exp: 0]'
-      - 'L 1 45.0.0.4 MRU 1500 [Labels: 24014 Exp: 0] 5 ms'
-      - 'L 2 34.0.0.3 MRU 1500 [Labels: 16001 Exp: 0] 5 ms'
-      - 'L 3 23.0.0.2 MRU 1500 [Labels: implicit-null Exp: 0] 7 ms'
+      - '  0 45.0.0.5 MRU 1500 [Labels: 24015 Exp: 0]'
+      - 'L 1 45.0.0.4 MRU 1500 [Labels: 24014 Exp: 0] 7 ms'
+      - 'L 2 34.0.0.3 MRU 1500 [Labels: 16001 Exp: 0] 8 ms'
+      - 'L 3 23.0.0.2 MRU 1500 [Labels: implicit-null Exp: 0] 8 ms'
       - '! 4 12.0.0.1 9 ms'
 ok: [PE5] => (item=traceroute mpls multipath ipv4 1.1.1.1/32 verbose) =>
   msg:
@@ -1938,7 +2115,7 @@ ok: [PE5] => (item=traceroute mpls multipath ipv4 1.1.1.1/32 verbose) =>
       - 'Path 0 found, '
       - ' output interface GigabitEthernet0/0/0/0 nexthop 45.0.0.4'
       - ' source 45.0.0.5 destination 127.0.0.0'
-      - '  0 45.0.0.5 45.0.0.4 MRU 1500 [Labels: 24011 Exp: 0] multipaths 0'
+      - '  0 45.0.0.5 45.0.0.4 MRU 1500 [Labels: 24015 Exp: 0] multipaths 0'
       - 'L 1 45.0.0.4 34.0.0.3 MRU 1500 [Labels: 24014 Exp: 0] ret code 8 multipaths 2'
       - 'L 2 34.0.0.3 23.0.0.2 MRU 1500 [Labels: 16001 Exp: 0] ret code 8 multipaths 1'
       - 'L 3 23.0.0.2 12.0.0.1 MRU 1500 [Labels: implicit-null Exp: 0] ret code 8 multipaths 1'
@@ -1947,7 +2124,7 @@ ok: [PE5] => (item=traceroute mpls multipath ipv4 1.1.1.1/32 verbose) =>
       - 'Path 1 found, '
       - ' output interface GigabitEthernet0/0/0/0 nexthop 45.0.0.4'
       - ' source 45.0.0.5 destination 127.0.0.2'
-      - '  0 45.0.0.5 45.0.0.4 MRU 1500 [Labels: 24011 Exp: 0] multipaths 0'
+      - '  0 45.0.0.5 45.0.0.4 MRU 1500 [Labels: 24015 Exp: 0] multipaths 0'
       - 'L 1 45.0.0.4 47.0.0.7 MRU 1500 [Labels: 24014 Exp: 0] ret code 8 multipaths 2'
       - 'L 2 47.0.0.7 27.0.0.2 MRU 1500 [Labels: 16001 Exp: 0] ret code 8 multipaths 1'
       - 'L 3 27.0.0.2 12.0.0.1 MRU 1500 [Labels: implicit-null Exp: 0] ret code 8 multipaths 1'
@@ -1956,7 +2133,7 @@ ok: [PE5] => (item=traceroute mpls multipath ipv4 1.1.1.1/32 verbose) =>
       - Paths (found/broken/unexplored) (2/0/0)
       - ' Echo Request (sent/fail) (7/0)'
       - ' Echo Reply (received/timeout) (7/0)'
-      - ' Total Time Elapsed 48 ms'
+      - ' Total Time Elapsed 64 ms'
 
 TASK [3.8 RUN COMMANDS TO VERIFY LDP TO SR LABEL STITCHING] ********************
 ok: [P3] => (item=show cef 1.1.1.1/32)
@@ -1966,19 +2143,19 @@ ok: [P3] => (item=show mpls ldp forwarding 1.1.1.1/32)
 TASK [3.9 DISPLAY THE OUTPUT REGISTERED IN THE PREVIOUS TASK] ******************
 ok: [P3] => (item=show cef 1.1.1.1/32) =>
   msg:
-  - - - 1.1.1.1/32, version 889, labeled SR, internal 0x1000001 0x8310 (ptr 0x871a5b70) [1], 0x600 (0x8808b890), 0xa28 (0x89170588)
-      - ' Updated Mar  7 07:51:45.286 '
+  - - - 1.1.1.1/32, version 897, labeled SR, internal 0x1000001 0x8310 (ptr 0x8718fb70) [1], 0x600 (0x87846890), 0xa28 (0x89295588)
+      - ' Updated Mar 16 16:28:23.999 '
       - ' local adjacency to GigabitEthernet0/0/0/0'
       - ''
       - ' Prefix Len 32, traffic index 0, precedence n/a, priority 1'
-      - '  gateway array (0x87ef6b48) reference count 3, flags 0x68, source rib (7), 1 backups'
-      - '                [2 type 5 flags 0x8401 (0x891afa08) ext 0x0 (0x0)]'
-      - '  LW-LDI[type=5, refc=3, ptr=0x8808b890, sh-ldi=0x891afa08]'
-      - '  gateway array update type-time 1 Mar  7 07:51:45.286'
-      - ' LDI Update time Mar  7 07:51:45.286'
-      - ' LW-LDI-TS Mar  7 07:51:45.286'
+      - '  gateway array (0x876af198) reference count 3, flags 0x68, source rib (7), 1 backups'
+      - '                [2 type 5 flags 0x8401 (0x892d5de8) ext 0x0 (0x0)]'
+      - '  LW-LDI[type=5, refc=3, ptr=0x87846890, sh-ldi=0x892d5de8]'
+      - '  gateway array update type-time 1 Mar 16 16:28:23.999'
+      - ' LDI Update time Mar 16 16:28:23.999'
+      - ' LW-LDI-TS Mar 16 16:28:23.999'
       - '   via 23.0.0.2/32, GigabitEthernet0/0/0/0, 13 dependencies, weight 0, class 0 [flags 0x0]'
-      - '    path-idx 0 NHID 0x3 [0x893bad30 0x0]'
+      - '    path-idx 0 NHID 0x3 [0x891cad30 0x0]'
       - '    next hop 23.0.0.2/32'
       - '    local adjacency'
       - '     local label 16001      labels imposed {16001}'
@@ -2029,20 +2206,20 @@ ok: [P3] => (item=show mpls forwarding labels 24014) =>
       - 24014  16001       1.1.1.1/32         Gi0/0/0/0    23.0.0.2        512
 ok: [P3] => (item=show cef mpls local-label 24014 eOS detail) =>
   msg:
-  - - - Label/EOS 24014/1, Label-type Unknown, version 594, labeled SR, internal 0x1000001 0x87f0 (ptr 0x872293f8) [1], 0x600 (0x8808b218), 0xa28 (0x89170648)
-      - ' Updated Mar  7 07:53:01.719 '
+  - - - Label/EOS 24014/1, Label-type Unknown, version 596, labeled SR, internal 0x1000001 0x87f0 (ptr 0x872133f8) [1], 0x600 (0x87846218), 0xa28 (0x892956a8)
+      - ' Updated Mar 16 16:29:55.003 '
       - ' local adjacency to GigabitEthernet0/0/0/0'
       - ''
       - ' Prefix Len 21, traffic index 0, precedence n/a, priority 15'
       - ' Extensions: context-label:16001'
-      - '  gateway array (0x87ef6890) reference count 2, flags 0x48, source lsd (5), 0 backups'
-      - '                [2 type 6 flags 0x8401 (0x891b0728) ext 0x0 (0x0)]'
-      - '  LW-LDI[type=6, refc=2, ptr=0x8808b218, sh-ldi=0x891b0728]'
-      - '  gateway array update type-time 1 Mar  7 07:50:32.143'
-      - ' LDI Update time Mar  7 07:51:45.287'
-      - ' LW-LDI-TS Mar  7 07:53:01.723'
+      - '  gateway array (0x876b02d0) reference count 2, flags 0x48, source lsd (5), 0 backups'
+      - '                [2 type 6 flags 0x8401 (0x892d5d28) ext 0x0 (0x0)]'
+      - '  LW-LDI[type=6, refc=2, ptr=0x87846218, sh-ldi=0x892d5d28]'
+      - '  gateway array update type-time 1 Mar 16 16:26:35.167'
+      - ' LDI Update time Mar 16 16:28:23.999'
+      - ' LW-LDI-TS Mar 16 16:29:55.003'
       - '   via 23.0.0.2/32, GigabitEthernet0/0/0/0, 13 dependencies, weight 0, class 0 [flags 0x0]'
-      - '    path-idx 0 NHID 0x3 [0x893bad30 0x0]'
+      - '    path-idx 0 NHID 0x3 [0x891cad30 0x0]'
       - '    next hop 23.0.0.2/32'
       - '    local adjacency'
       - '     local label 24014      labels imposed {16001}'
@@ -2106,19 +2283,19 @@ TASK [3.19 DISPLAY THE OUTPUT REGISTERED IN THE PREVIOUS TASK] *****************
 ok: [P3] =>
   msg:
   - show cef 5.5.5.5/32
-  - - - 5.5.5.5/32, version 914, labeled SR, internal 0x1000001 0x87f0 (ptr 0x871a5e70) [1], 0x600 (0x8808bf50), 0xa28 (0x891702e8)
-      - ' Updated Mar  7 07:54:38.528 '
+  - - - 5.5.5.5/32, version 919, labeled SR, internal 0x1000001 0x87f0 (ptr 0x8718fe70) [1], 0x600 (0x87846f50), 0xa28 (0x89295408)
+      - ' Updated Mar 16 16:32:06.625 '
       - ' local adjacency to GigabitEthernet0/0/0/2'
       - ''
       - ' Prefix Len 32, traffic index 0, precedence n/a, priority 15'
-      - '  gateway array (0x87ef49c0) reference count 3, flags 0x68, source rib (7), 2 backups'
-      - '                [2 type 5 flags 0x8401 (0x891afe28) ext 0x0 (0x0)]'
-      - '  LW-LDI[type=5, refc=3, ptr=0x8808bf50, sh-ldi=0x891afe28]'
-      - '  gateway array update type-time 1 Mar  7 07:54:38.528'
-      - ' LDI Update time Mar  7 07:54:38.536'
-      - ' LW-LDI-TS Mar  7 07:54:38.536'
+      - '  gateway array (0x876b0670) reference count 3, flags 0x68, source rib (7), 2 backups'
+      - '                [2 type 5 flags 0x8401 (0x892d5f08) ext 0x0 (0x0)]'
+      - '  LW-LDI[type=5, refc=3, ptr=0x87846f50, sh-ldi=0x892d5f08]'
+      - '  gateway array update type-time 1 Mar 16 16:32:06.625'
+      - ' LDI Update time Mar 16 16:32:06.633'
+      - ' LW-LDI-TS Mar 16 16:32:06.633'
       - '   via 34.0.0.4/32, GigabitEthernet0/0/0/2, 17 dependencies, weight 0, class 0 [flags 0x0]'
-      - '    path-idx 0 NHID 0x2 [0x893ba830 0x0]'
+      - '    path-idx 0 NHID 0x2 [0x891ca830 0x0]'
       - '    next hop 34.0.0.4/32'
       - '    local adjacency'
       - '     local label 16005      labels imposed {24002}'
@@ -2148,27 +2325,12 @@ ok: [PE1] =>
       - Type escape sequence to abort.
       - ''
       - '  0 12.0.0.1 MRU 1500 [Labels: 16005 Exp: 0]'
-      - 'L 1 12.0.0.2 MRU 1500 [Labels: 16005 Exp: 0] 7 ms'
-      - 'L 2 23.0.0.3 MRU 1500 [Labels: 24002 Exp: 0] 8 ms'
-      - 'L 3 34.0.0.4 MRU 1500 [Labels: implicit-null Exp: 0] 9 ms'
-      - '! 4 45.0.0.5 7 ms'
+      - 'L 1 12.0.0.2 MRU 1500 [Labels: 16005 Exp: 0] 9 ms'
+      - 'L 2 23.0.0.3 MRU 1500 [Labels: 24002 Exp: 0] 11 ms'
+      - 'L 3 34.0.0.4 MRU 1500 [Labels: implicit-null Exp: 0] 12 ms'
+      - '! 4 45.0.0.5 12 ms'
 
 TASK [3.22 RENDER AND DISPLAY SR-PREFER CONFIGURATION] *************************
-ok: [PE5] =>
-  msg:
-  - 'template: sr_only_part1.j2'
-  - - router isis IGP
-    - ' address-family ipv4 unicast'
-    - '  segment-routing mpls sr-prefer'
-    - ' !'
-    - ' interface Loopback0'
-    - '  address-family ipv4 unicast'
-    - '   prefix-sid index 5'
-    - '  !'
-    - ' !'
-    - '!'
-    - ''
-    - ''
 ok: [P4] =>
   msg:
   - 'template: sr_only_part1.j2'
@@ -2179,6 +2341,21 @@ ok: [P4] =>
     - ' interface Loopback0'
     - '  address-family ipv4 unicast'
     - '   prefix-sid index 4'
+    - '  !'
+    - ' !'
+    - '!'
+    - ''
+    - ''
+ok: [PE5] =>
+  msg:
+  - 'template: sr_only_part1.j2'
+  - - router isis IGP
+    - ' address-family ipv4 unicast'
+    - '  segment-routing mpls sr-prefer'
+    - ' !'
+    - ' interface Loopback0'
+    - '  address-family ipv4 unicast'
+    - '   prefix-sid index 5'
     - '  !'
     - ' !'
     - '!'
@@ -2201,9 +2378,9 @@ ok: [P8] =>
     - ''
 
 TASK [3.23 RENDER AND SAVE THE SR-PREFER CONFIGURATION] ************************
-ok: [PE5]
-ok: [P8]
 ok: [P4]
+ok: [P8]
+ok: [PE5]
 Pausing for 1 seconds
 (ctrl+C then 'C' = continue early, ctrl+C then 'A' = abort)
 
@@ -2219,32 +2396,22 @@ ok: [P8] =>
   output.dest: xrcfg/P8.sronly_p1.xrcfg
 
 TASK [3.25 CONFIGURE SR WITH SR-PREFER ON REMAINING ROUTERS] *******************
+changed: [P4]
 changed: [PE5]
 changed: [P8]
-changed: [P4]
 
 TASK [3.26 RENDER AND DISPLAY REMOVE LDP CONFIGURATION] ************************
-ok: [PE1] =>
-  msg:
-  - 'template: sr_only_remove_ldp.j2'
-  - - router isis IGP
-    - ' address-family ipv4 unicast'
-    - '  no mpls ldp auto-config'
-    - ' !'
-    - '!'
-    - ''
-    - ''
-ok: [P6] =>
-  msg:
-  - 'template: sr_only_remove_ldp.j2'
-  - - router isis IGP
-    - ' address-family ipv4 unicast'
-    - '  no mpls ldp auto-config'
-    - ' !'
-    - '!'
-    - ''
-    - ''
 ok: [P4] =>
+  msg:
+  - 'template: sr_only_remove_ldp.j2'
+  - - router isis IGP
+    - ' address-family ipv4 unicast'
+    - '  no mpls ldp auto-config'
+    - ' !'
+    - '!'
+    - ''
+    - ''
+ok: [PE1] =>
   msg:
   - 'template: sr_only_remove_ldp.j2'
   - - router isis IGP
@@ -2264,7 +2431,17 @@ ok: [PE5] =>
     - '!'
     - ''
     - ''
-ok: [P3] =>
+ok: [P8] =>
+  msg:
+  - 'template: sr_only_remove_ldp.j2'
+  - - router isis IGP
+    - ' address-family ipv4 unicast'
+    - '  no mpls ldp auto-config'
+    - ' !'
+    - '!'
+    - ''
+    - ''
+ok: [P6] =>
   msg:
   - 'template: sr_only_remove_ldp.j2'
   - - router isis IGP
@@ -2284,7 +2461,7 @@ ok: [P2] =>
     - '!'
     - ''
     - ''
-ok: [P8] =>
+ok: [P7] =>
   msg:
   - 'template: sr_only_remove_ldp.j2'
   - - router isis IGP
@@ -2294,7 +2471,7 @@ ok: [P8] =>
     - '!'
     - ''
     - ''
-ok: [P7] =>
+ok: [P3] =>
   msg:
   - 'template: sr_only_remove_ldp.j2'
   - - router isis IGP
@@ -2306,14 +2483,14 @@ ok: [P7] =>
     - ''
 
 TASK [3.27 RENDER AND SAVE REMOVE LDP CONFIGURATION] ***************************
-ok: [P7]
+ok: [PE5]
+ok: [P8]
 ok: [P3]
+changed: [P6]
+changed: [P2]
 changed: [PE1]
 ok: [P4]
-ok: [PE5]
-changed: [P2]
-ok: [P8]
-changed: [P6]
+ok: [P7]
 Pausing for 1 seconds
 (ctrl+C then 'C' = continue early, ctrl+C then 'A' = abort)
 
@@ -2321,30 +2498,30 @@ TASK [1 secs PAUSE FOR CONVERGENCE] ********************************************
 ok: [PE1]
 
 TASK [3.28 DISPLAY THE OUTPUT REGISTERED IN THE PREVIOUS TASK] *****************
-ok: [PE1] =>
-  output.dest: xrcfg/PE1.noldp.xrcfg
-ok: [P4] =>
-  output.dest: xrcfg/P4.noldp.xrcfg
-ok: [P3] =>
-  output.dest: xrcfg/P3.noldp.xrcfg
-ok: [P2] =>
-  output.dest: xrcfg/P2.noldp.xrcfg
 ok: [P7] =>
   output.dest: xrcfg/P7.noldp.xrcfg
+ok: [P2] =>
+  output.dest: xrcfg/P2.noldp.xrcfg
+ok: [P4] =>
+  output.dest: xrcfg/P4.noldp.xrcfg
+ok: [PE1] =>
+  output.dest: xrcfg/PE1.noldp.xrcfg
+ok: [P3] =>
+  output.dest: xrcfg/P3.noldp.xrcfg
 ok: [PE5] =>
   output.dest: xrcfg/PE5.noldp.xrcfg
-ok: [P8] =>
-  output.dest: xrcfg/P8.noldp.xrcfg
 ok: [P6] =>
   output.dest: xrcfg/P6.noldp.xrcfg
+ok: [P8] =>
+  output.dest: xrcfg/P8.noldp.xrcfg
 
 TASK [3.29 REMOVE LDP FROM ALL ROUTERS] ****************************************
 changed: [PE1]
+changed: [P3]
+changed: [P6]
 changed: [PE5]
 changed: [P4]
-changed: [P6]
 changed: [P8]
-changed: [P3]
 changed: [P2]
 changed: [P7]
 
@@ -2396,17 +2573,15 @@ ok: [P4] =>
     - '!'
     - ''
     - ''
-ok: [P6] =>
+ok: [PE1] =>
   msg:
   - 'template: tilfa.j2'
-  - - router isis IGP interface GigabitEthernet0/0/0/0 address-family ipv4 unicast fast-reroute per-prefix
-    - router isis IGP interface GigabitEthernet0/0/0/0 address-family ipv4 unicast fast-reroute per-prefix ti-lfa
-    - router isis IGP interface GigabitEthernet0/0/0/1 address-family ipv4 unicast fast-reroute per-prefix
-    - router isis IGP interface GigabitEthernet0/0/0/1 address-family ipv4 unicast fast-reroute per-prefix ti-lfa
+  - - router isis IGP interface GigabitEthernet0/0/0/2 address-family ipv4 unicast fast-reroute per-prefix
+    - router isis IGP interface GigabitEthernet0/0/0/2 address-family ipv4 unicast fast-reroute per-prefix ti-lfa
     - '!'
     - ''
     - ''
-ok: [P2] =>
+ok: [P3] =>
   msg:
   - 'template: tilfa.j2'
   - - router isis IGP interface GigabitEthernet0/0/0/0 address-family ipv4 unicast fast-reroute per-prefix
@@ -2417,16 +2592,36 @@ ok: [P2] =>
     - router isis IGP interface GigabitEthernet0/0/0/2 address-family ipv4 unicast fast-reroute per-prefix ti-lfa
     - router isis IGP interface GigabitEthernet0/0/0/3 address-family ipv4 unicast fast-reroute per-prefix
     - router isis IGP interface GigabitEthernet0/0/0/3 address-family ipv4 unicast fast-reroute per-prefix ti-lfa
-    - router isis IGP interface GigabitEthernet0/0/0/5 address-family ipv4 unicast fast-reroute per-prefix
-    - router isis IGP interface GigabitEthernet0/0/0/5 address-family ipv4 unicast fast-reroute per-prefix ti-lfa
     - '!'
     - ''
     - ''
-ok: [PE1] =>
+ok: [P6] =>
   msg:
   - 'template: tilfa.j2'
-  - - router isis IGP interface GigabitEthernet0/0/0/2 address-family ipv4 unicast fast-reroute per-prefix
+  - - router isis IGP interface GigabitEthernet0/0/0/0 address-family ipv4 unicast fast-reroute per-prefix
+    - router isis IGP interface GigabitEthernet0/0/0/0 address-family ipv4 unicast fast-reroute per-prefix ti-lfa
+    - router isis IGP interface GigabitEthernet0/0/0/1 address-family ipv4 unicast fast-reroute per-prefix
+    - router isis IGP interface GigabitEthernet0/0/0/1 address-family ipv4 unicast fast-reroute per-prefix ti-lfa
+    - '!'
+    - ''
+    - ''
+ok: [P8] =>
+  msg:
+  - 'template: tilfa.j2'
+  - - router isis IGP interface GigabitEthernet0/0/0/0 address-family ipv4 unicast fast-reroute per-prefix
+    - router isis IGP interface GigabitEthernet0/0/0/0 address-family ipv4 unicast fast-reroute per-prefix ti-lfa
+    - router isis IGP interface GigabitEthernet0/0/0/1 address-family ipv4 unicast fast-reroute per-prefix
+    - router isis IGP interface GigabitEthernet0/0/0/1 address-family ipv4 unicast fast-reroute per-prefix ti-lfa
+    - router isis IGP interface GigabitEthernet0/0/0/2 address-family ipv4 unicast fast-reroute per-prefix
     - router isis IGP interface GigabitEthernet0/0/0/2 address-family ipv4 unicast fast-reroute per-prefix ti-lfa
+    - '!'
+    - ''
+    - ''
+ok: [PE5] =>
+  msg:
+  - 'template: tilfa.j2'
+  - - router isis IGP interface GigabitEthernet0/0/0/0 address-family ipv4 unicast fast-reroute per-prefix
+    - router isis IGP interface GigabitEthernet0/0/0/0 address-family ipv4 unicast fast-reroute per-prefix ti-lfa
     - '!'
     - ''
     - ''
@@ -2446,19 +2641,7 @@ ok: [P7] =>
     - '!'
     - ''
     - ''
-ok: [P8] =>
-  msg:
-  - 'template: tilfa.j2'
-  - - router isis IGP interface GigabitEthernet0/0/0/0 address-family ipv4 unicast fast-reroute per-prefix
-    - router isis IGP interface GigabitEthernet0/0/0/0 address-family ipv4 unicast fast-reroute per-prefix ti-lfa
-    - router isis IGP interface GigabitEthernet0/0/0/1 address-family ipv4 unicast fast-reroute per-prefix
-    - router isis IGP interface GigabitEthernet0/0/0/1 address-family ipv4 unicast fast-reroute per-prefix ti-lfa
-    - router isis IGP interface GigabitEthernet0/0/0/2 address-family ipv4 unicast fast-reroute per-prefix
-    - router isis IGP interface GigabitEthernet0/0/0/2 address-family ipv4 unicast fast-reroute per-prefix ti-lfa
-    - '!'
-    - ''
-    - ''
-ok: [P3] =>
+ok: [P2] =>
   msg:
   - 'template: tilfa.j2'
   - - router isis IGP interface GigabitEthernet0/0/0/0 address-family ipv4 unicast fast-reroute per-prefix
@@ -2469,27 +2652,21 @@ ok: [P3] =>
     - router isis IGP interface GigabitEthernet0/0/0/2 address-family ipv4 unicast fast-reroute per-prefix ti-lfa
     - router isis IGP interface GigabitEthernet0/0/0/3 address-family ipv4 unicast fast-reroute per-prefix
     - router isis IGP interface GigabitEthernet0/0/0/3 address-family ipv4 unicast fast-reroute per-prefix ti-lfa
-    - '!'
-    - ''
-    - ''
-ok: [PE5] =>
-  msg:
-  - 'template: tilfa.j2'
-  - - router isis IGP interface GigabitEthernet0/0/0/0 address-family ipv4 unicast fast-reroute per-prefix
-    - router isis IGP interface GigabitEthernet0/0/0/0 address-family ipv4 unicast fast-reroute per-prefix ti-lfa
+    - router isis IGP interface GigabitEthernet0/0/0/5 address-family ipv4 unicast fast-reroute per-prefix
+    - router isis IGP interface GigabitEthernet0/0/0/5 address-family ipv4 unicast fast-reroute per-prefix ti-lfa
     - '!'
     - ''
     - ''
 
 TASK [4.1 RENDER AND SAVE THE TI-LFA CONFIGURATION] ****************************
-ok: [P4]
 ok: [P2]
+ok: [P4]
 ok: [PE1]
 ok: [P6]
-ok: [PE5]
 ok: [P3]
-ok: [P8]
+ok: [PE5]
 ok: [P7]
+ok: [P8]
 Pausing for 1 seconds
 (ctrl+C then 'C' = continue early, ctrl+C then 'A' = abort)
 
@@ -2499,27 +2676,27 @@ ok: [PE1]
 TASK [4.2 DISPLAY THE OUTPUT REGISTERED IN THE PREVIOUS TASK] ******************
 ok: [P3] =>
   output.dest: xrcfg/P3.tilfa.xrcfg
-ok: [P2] =>
-  output.dest: xrcfg/P2.tilfa.xrcfg
-ok: [P4] =>
-  output.dest: xrcfg/P4.tilfa.xrcfg
-ok: [P7] =>
-  output.dest: xrcfg/P7.tilfa.xrcfg
-ok: [P6] =>
-  output.dest: xrcfg/P6.tilfa.xrcfg
 ok: [PE1] =>
   output.dest: xrcfg/PE1.tilfa.xrcfg
+ok: [P2] =>
+  output.dest: xrcfg/P2.tilfa.xrcfg
 ok: [P8] =>
   output.dest: xrcfg/P8.tilfa.xrcfg
+ok: [P4] =>
+  output.dest: xrcfg/P4.tilfa.xrcfg
 ok: [PE5] =>
   output.dest: xrcfg/PE5.tilfa.xrcfg
+ok: [P6] =>
+  output.dest: xrcfg/P6.tilfa.xrcfg
+ok: [P7] =>
+  output.dest: xrcfg/P7.tilfa.xrcfg
 
 TASK [4.3 RENDER AND APPLY THE TI-LFA CONFIGURATION] ***************************
 changed: [PE1]
 changed: [PE5]
 changed: [P6]
-changed: [P8]
 changed: [P4]
+changed: [P8]
 changed: [P3]
 changed: [P2]
 changed: [P7]
@@ -2551,10 +2728,10 @@ ok: [P2] => (item=show isis interface GigabitEthernet 0/0/0/0) =>
       - '  Circuit Type:             level-2-only'
       - '  Media Type:               P2P'
       - '  Circuit Number:           0'
-      - '  Extended Circuit Number:  3'
-      - '  Last IIH Received:        07:57:18 (7.18 sec ago), 55 octets'
-      - '  Last IIH Sent:            07:57:19 (6.38 sec ago), 55 octets'
-      - '  Sending next P2P IIH in:  2 s'
+      - '  Extended Circuit Number:  4'
+      - '  Last IIH Received:        16:35:33 (0.47 sec ago), 55 octets'
+      - '  Last IIH Sent:            16:35:30 (3.85 sec ago), 55 octets'
+      - '  Sending next P2P IIH in:  3 s'
       - '  '
       - '  Level-2                   '
       - '    Adjacency Count:        1'
@@ -2566,7 +2743,7 @@ ok: [P2] => (item=show isis interface GigabitEthernet 0/0/0/0) =>
       - '  CLNS I/O'
       - '    Protocol State:         Up'
       - '    MTU:                    1497'
-      - '    SNPA:                   0242.ac13.0002'
+      - '    SNPA:                   0242.c0a8.9002'
       - '    Layer-2 Multicast:'
       - '      All ISs:              Listening'
       - '  '
@@ -2604,14 +2781,14 @@ ok: [P2] => (item=show isis interface GigabitEthernet 0/0/0/0) =>
       - '  '
       - '  LSP Transmission is:      idle'
       - '  LSP Transmit Timer in:    0 ms'
-      - '  LSP Burst Size:           8 LSPs in the next 0 ms'
+      - '  LSP Burst Size:           7 LSPs in the next 0 ms'
       - '  LSP Rexmit Queue Size:    0'
       - '  '
       - '  PME Link Delays and Loss: -'
 ok: [P2] => (item=show isis fast-reroute 5.5.5.5/32 detail) =>
   msg:
   - - - 'L2 5.5.5.5/32 [30/115] Label: 16005, medium priority'
-      - '   Installed Mar 07 07:56:23.829 for 00:01:03'
+      - '   Installed Mar 16 16:34:29.411 for 00:01:07'
       - '     via 23.0.0.3, GigabitEthernet0/0/0/0, Label: 16005, P3, SRGB Base: 16000, Weight: 0'
       - '       Backup path: LFA, via 27.0.0.7, GigabitEthernet0/0/0/3, Label: 16005, P7, SRGB Base: 16000, Weight: 0, Metric: 30'
       - '       P: Yes, TM: 30, LC: No, NP: Yes, D: Yes, SRLG: Yes'
@@ -2623,7 +2800,7 @@ ok: [P2] => (item=show route 5.5.5.5/32) =>
   msg:
   - - - Routing entry for 5.5.5.5/32
       - '  Known via "isis IGP", distance 115, metric 30, labeled SR, type level-2'
-      - '  Installed Mar  7 07:56:23.828 for 00:01:03'
+      - '  Installed Mar 16 16:34:29.410 for 00:01:09'
       - '  Routing Descriptor Blocks'
       - '    23.0.0.3, from 5.5.5.5, via GigabitEthernet0/0/0/0, Protected, ECMP-Backup (Local-LFA)'
       - '      Route metric is 30'
@@ -2632,23 +2809,23 @@ ok: [P2] => (item=show route 5.5.5.5/32) =>
       - '  No advertising protos.'
 ok: [P2] => (item=show cef 5.5.5.5/32) =>
   msg:
-  - - - 5.5.5.5/32, version 1197, labeled SR, internal 0x1000001 0x8310 (ptr 0x871928e8) [1], 0x600 (0x878472b0), 0xa28 (0x898df1e0)
-      - ' Updated Mar  7 07:56:23.851 '
+  - - - 5.5.5.5/32, version 1227, labeled SR, internal 0x1000001 0x8310 (ptr 0x87192ad8) [1], 0x600 (0x8808c2f8), 0xa28 (0x898e41e0)
+      - ' Updated Mar 16 16:34:29.431 '
       - ' local adjacency to GigabitEthernet0/0/0/0'
       - ''
       - ' Prefix Len 32, traffic index 0, precedence n/a, priority 1'
-      - '  gateway array (0x876aff30) reference count 6, flags 0x400068, source rib (7), 1 backups'
-      - '                [3 type 5 flags 0x8401 (0x891b04e8) ext 0x0 (0x0)]'
-      - '  LW-LDI[type=5, refc=3, ptr=0x878472b0, sh-ldi=0x891b04e8]'
-      - '  gateway array update type-time 1 Mar  7 07:56:23.851'
-      - ' LDI Update time Mar  7 07:56:23.851'
-      - ' LW-LDI-TS Mar  7 07:56:23.851'
+      - '  gateway array (0x87ef6320) reference count 6, flags 0x400068, source rib (7), 1 backups'
+      - '                [3 type 5 flags 0x8401 (0x892d60e8) ext 0x0 (0x0)]'
+      - '  LW-LDI[type=5, refc=3, ptr=0x8808c2f8, sh-ldi=0x892d60e8]'
+      - '  gateway array update type-time 1 Mar 16 16:34:29.431'
+      - ' LDI Update time Mar 16 16:34:29.431'
+      - ' LW-LDI-TS Mar 16 16:34:29.431'
       - '   via 23.0.0.3/32, GigabitEthernet0/0/0/0, 10 dependencies, weight 0, class 0, protected, ECMP-backup (Local-LFA) [flags 0x600]'
-      - '    path-idx 0 bkup-idx 1 NHID 0x3 [0x89a8b290 0x0]'
+      - '    path-idx 0 bkup-idx 1 NHID 0xd [0x89a95290 0x0]'
       - '    next hop 23.0.0.3/32'
       - '     local label 16005      labels imposed {16005}'
       - '   via 27.0.0.7/32, GigabitEthernet0/0/0/3, 8 dependencies, weight 0, class 0, protected, ECMP-backup (Local-LFA) [flags 0x600]'
-      - '    path-idx 1 bkup-idx 0 NHID 0x5 [0x89a8b470 0x0]'
+      - '    path-idx 1 bkup-idx 0 NHID 0xb [0x89a95470 0x0]'
       - '    next hop 27.0.0.7/32'
       - '     local label 16005      labels imposed {16005}'
       - ''
@@ -2716,16 +2893,16 @@ TASK [1 secs PAUSE FOR CONVERGENCE] ********************************************
 ok: [P2]
 
 TASK [5.2 DISPLAY THE OUTPUT REGISTERED IN THE PREVIOUS TASK] ******************
-ok: [P2] =>
-  output.dest: xrcfg/P2.zs_tilfa.xrcfg
 ok: [P6] =>
   output.dest: xrcfg/P6.zs_tilfa.xrcfg
 ok: [P7] =>
   output.dest: xrcfg/P7.zs_tilfa.xrcfg
+ok: [P2] =>
+  output.dest: xrcfg/P2.zs_tilfa.xrcfg
 
 TASK [5.3 RENDER AND APPLY THE ZERO SEGMENT TI-LFA CONFIGURATION] **************
-changed: [P7]
 changed: [P6]
+changed: [P7]
 changed: [P2]
 Pausing for 60 seconds
 (ctrl+C then 'C' = continue early, ctrl+C then 'A' = abort)
@@ -2743,13 +2920,13 @@ TASK [5.5 DISPLAY THE OUTPUT REGISTERED IN THE PREVIOUS TASK] ******************
 ok: [P2] => (item=show isis route 5.5.5.5/32 detail) =>
   msg:
   - - - 'L2 5.5.5.5/32 [30/115] Label: 16005, medium priority'
-      - '   Installed Mar 07 07:57:44.738 for 00:01:00'
+      - '   Installed Mar 16 16:36:09.850 for 00:01:03'
       - '     via 23.0.0.3, GigabitEthernet0/0/0/0, Label: 16005, P3, SRGB Base: 16000, Weight: 0'
       - '     src PE5.00-00, 5.5.5.5, prefix-SID index 5, R:0 N:1 P:0 E:0 V:0 L:0, Alg:0'
 ok: [P2] => (item=show isis fast-reroute 5.5.5.5/32 detail) =>
   msg:
   - - - 'L2 5.5.5.5/32 [30/115] Label: 16005, medium priority'
-      - '   Installed Mar 07 07:57:44.738 for 00:01:00'
+      - '   Installed Mar 16 16:36:09.850 for 00:01:05'
       - '     via 23.0.0.3, GigabitEthernet0/0/0/0, Label: 16005, P3, SRGB Base: 16000, Weight: 0'
       - '       Backup path: LFA, via 27.0.0.7, GigabitEthernet0/0/0/3, Label: 16005, P7, SRGB Base: 16000, Weight: 0, Metric: 120'
       - '       P: No, TM: 120, LC: No, NP: Yes, D: Yes, SRLG: Yes'
@@ -2758,7 +2935,7 @@ ok: [P2] => (item=show route 5.5.5.5/32) =>
   msg:
   - - - Routing entry for 5.5.5.5/32
       - '  Known via "isis IGP", distance 115, metric 30, labeled SR, type level-2'
-      - '  Installed Mar  7 07:57:44.739 for 00:01:01'
+      - '  Installed Mar 16 16:36:09.851 for 00:01:06'
       - '  Routing Descriptor Blocks'
       - '    23.0.0.3, from 5.5.5.5, via GigabitEthernet0/0/0/0, Protected'
       - '      Route metric is 30'
@@ -2767,23 +2944,23 @@ ok: [P2] => (item=show route 5.5.5.5/32) =>
       - '  No advertising protos.'
 ok: [P2] => (item=show cef 5.5.5.5/32) =>
   msg:
-  - - - 5.5.5.5/32, version 1250, labeled SR, internal 0x1000001 0x8310 (ptr 0x871928e8) [1], 0x600 (0x878472b0), 0xa28 (0x898dfa68)
-      - ' Updated Mar  7 07:57:44.746 '
+  - - - 5.5.5.5/32, version 1280, labeled SR, internal 0x1000001 0x8310 (ptr 0x87192ad8) [1], 0x600 (0x8808c2f8), 0xa28 (0x898e4a68)
+      - ' Updated Mar 16 16:36:09.858 '
       - ' local adjacency to GigabitEthernet0/0/0/0'
       - ''
       - ' Prefix Len 32, traffic index 0, precedence n/a, priority 1'
-      - '  gateway array (0x876ae060) reference count 9, flags 0x500068, source rib (7), 1 backups'
-      - '                [4 type 5 flags 0x8401 (0x891af948) ext 0x0 (0x0)]'
-      - '  LW-LDI[type=5, refc=3, ptr=0x878472b0, sh-ldi=0x891af948]'
-      - '  gateway array update type-time 1 Mar  7 07:57:44.742'
-      - ' LDI Update time Mar  7 07:57:44.742'
-      - ' LW-LDI-TS Mar  7 07:57:44.746'
+      - '  gateway array (0x87ef3230) reference count 9, flags 0x500068, source rib (7), 1 backups'
+      - '                [4 type 5 flags 0x8401 (0x892d5008) ext 0x0 (0x0)]'
+      - '  LW-LDI[type=5, refc=3, ptr=0x8808c2f8, sh-ldi=0x892d5008]'
+      - '  gateway array update type-time 1 Mar 16 16:36:09.854'
+      - ' LDI Update time Mar 16 16:36:09.854'
+      - ' LW-LDI-TS Mar 16 16:36:09.858'
       - '   via 23.0.0.3/32, GigabitEthernet0/0/0/0, 14 dependencies, weight 0, class 0, protected [flags 0x400]'
-      - '    path-idx 0 bkup-idx 1 NHID 0x3 [0x89a8b290 0x0]'
+      - '    path-idx 0 bkup-idx 1 NHID 0xd [0x89a95290 0x0]'
       - '    next hop 23.0.0.3/32'
       - '     local label 16005      labels imposed {16005}'
       - '   via 27.0.0.7/32, GigabitEthernet0/0/0/3, 13 dependencies, weight 0, class 0, backup (Local-LFA) [flags 0x300]'
-      - '    path-idx 1 NHID 0x5 [0x893bab50 0x0]'
+      - '    path-idx 1 NHID 0xb [0x891d9bf0 0x0]'
       - '    next hop 27.0.0.7/32'
       - '    local adjacency'
       - '     local label 16005      labels imposed {16005}'
@@ -2849,10 +3026,10 @@ ok: [P2]
 TASK [5.8 DISPLAY THE OUTPUT REGISTERED IN THE PREVIOUS TASK] ******************
 ok: [P2] =>
   output.dest: xrcfg/P2.zs_tilfa_revert.xrcfg
-ok: [P6] =>
-  output.dest: xrcfg/P6.zs_tilfa_revert.xrcfg
 ok: [P7] =>
   output.dest: xrcfg/P7.zs_tilfa_revert.xrcfg
+ok: [P6] =>
+  output.dest: xrcfg/P6.zs_tilfa_revert.xrcfg
 
 TASK [5.9 RENDER AND REVERT ZERO SEGMENT TI-LFA SCENARIO CHANGES] **************
 changed: [P6]
@@ -2909,13 +3086,13 @@ TASK [6.5 DISPLAY THE OUTPUT REGISTERED IN THE PREVIOUS TASK] ******************
 ok: [P2] => (item=show isis route 5.5.5.5/32 detail) =>
   msg:
   - - - 'L2 5.5.5.5/32 [30/115] Label: 16005, medium priority'
-      - '   Installed Mar 07 07:59:09.170 for 00:01:04'
+      - '   Installed Mar 16 16:38:01.418 for 00:01:07'
       - '     via 23.0.0.3, GigabitEthernet0/0/0/0, Label: 16005, P3, SRGB Base: 16000, Weight: 0'
       - '     src PE5.00-00, 5.5.5.5, prefix-SID index 5, R:0 N:1 P:0 E:0 V:0 L:0, Alg:0'
 ok: [P2] => (item=show isis fast-reroute 5.5.5.5/32 detail) =>
   msg:
   - - - 'L2 5.5.5.5/32 [30/115] Label: 16005, medium priority'
-      - '   Installed Mar 07 07:59:09.170 for 00:01:05'
+      - '   Installed Mar 16 16:38:01.418 for 00:01:09'
       - '     via 23.0.0.3, GigabitEthernet0/0/0/0, Label: 16005, P3, SRGB Base: 16000, Weight: 0'
       - '       Backup path: TI-LFA (link), via 26.0.0.6, GigabitEthernet0/0/0/1 P6, SRGB Base: 16000, Weight: 0, Metric: 50'
       - '         P node: P8.00 [8.8.8.8], Label: 16008'
@@ -2927,7 +3104,7 @@ ok: [P2] => (item=show route 5.5.5.5/32) =>
   msg:
   - - - Routing entry for 5.5.5.5/32
       - '  Known via "isis IGP", distance 115, metric 30, labeled SR, type level-2'
-      - '  Installed Mar  7 07:59:09.171 for 00:01:05'
+      - '  Installed Mar 16 16:38:01.420 for 00:01:11'
       - '  Routing Descriptor Blocks'
       - '    23.0.0.3, from 5.5.5.5, via GigabitEthernet0/0/0/0, Protected'
       - '      Route metric is 30'
@@ -2937,23 +3114,23 @@ ok: [P2] => (item=show route 5.5.5.5/32) =>
       - '  No advertising protos.'
 ok: [P2] => (item=show cef 5.5.5.5/32) =>
   msg:
-  - - - 5.5.5.5/32, version 1336, labeled SR, internal 0x1000001 0x8310 (ptr 0x871928e8) [1], 0x600 (0x878472b0), 0xa28 (0x898dfc70)
-      - ' Updated Mar  7 07:59:09.189 '
+  - - - 5.5.5.5/32, version 1366, labeled SR, internal 0x1000001 0x8310 (ptr 0x87192ad8) [1], 0x600 (0x8808c2f8), 0xa28 (0x898e4790)
+      - ' Updated Mar 16 16:38:01.428 '
       - ' local adjacency to GigabitEthernet0/0/0/0'
       - ''
       - ' Prefix Len 32, traffic index 0, precedence n/a, priority 1'
-      - '  gateway array (0x876ae4e8) reference count 6, flags 0x500068, source rib (7), 1 backups'
-      - '                [3 type 5 flags 0x8401 (0x891b06c8) ext 0x0 (0x0)]'
-      - '  LW-LDI[type=5, refc=3, ptr=0x878472b0, sh-ldi=0x891b06c8]'
-      - '  gateway array update type-time 1 Mar  7 07:59:09.189'
-      - ' LDI Update time Mar  7 07:59:09.189'
-      - ' LW-LDI-TS Mar  7 07:59:09.189'
+      - '  gateway array (0x87ef5840) reference count 6, flags 0x500068, source rib (7), 1 backups'
+      - '                [3 type 5 flags 0x8401 (0x892d4828) ext 0x0 (0x0)]'
+      - '  LW-LDI[type=5, refc=3, ptr=0x8808c2f8, sh-ldi=0x892d4828]'
+      - '  gateway array update type-time 1 Mar 16 16:38:01.428'
+      - ' LDI Update time Mar 16 16:38:01.428'
+      - ' LW-LDI-TS Mar 16 16:38:01.428'
       - '   via 23.0.0.3/32, GigabitEthernet0/0/0/0, 14 dependencies, weight 0, class 0, protected [flags 0x400]'
-      - '    path-idx 0 bkup-idx 1 NHID 0x3 [0x89a8bce0 0x0]'
+      - '    path-idx 0 bkup-idx 1 NHID 0xd [0x89a95470 0x0]'
       - '    next hop 23.0.0.3/32'
       - '     local label 16005      labels imposed {16005}'
       - '   via 26.0.0.6/32, GigabitEthernet0/0/0/1, 12 dependencies, weight 0, class 0, backup (TI-LFA) [flags 0xb00]'
-      - '    path-idx 1 NHID 0x2 [0x893baab0 0x0]'
+      - '    path-idx 1 NHID 0xc [0x891d9ab0 0x0]'
       - '    next hop 26.0.0.6/32, Repair Node(s): 8.8.8.8'
       - '    local adjacency'
       - '     local label 16005      labels imposed {16008 16005}'
@@ -3035,18 +3212,18 @@ ok: [P8] => (item=traceroute sr-mpls 5.5.5.5/32) =>
       - Type escape sequence to abort.
       - ''
       - '  0 78.0.0.8 MRU 1500 [Labels: 16005 Exp: 0]'
-      - 'L 1 78.0.0.7 MRU 1500 [Labels: 16005 Exp: 0] 8 ms'
+      - 'L 1 78.0.0.7 MRU 1500 [Labels: 16005 Exp: 0] 9 ms'
       - 'L 2 67.0.0.6 MRU 1500 [Labels: 16005 Exp: 0] 15 ms'
-      - 'L 3 26.0.0.2 MRU 1500 [Labels: 16005 Exp: 0] 9 ms'
-      - 'L 4 23.0.0.3 MRU 1500 [Labels: 16005 Exp: 0] 10 ms'
-      - 'L 5 34.0.0.4 MRU 1500 [Labels: implicit-null Exp: 0] 11 ms'
-      - '! 6 45.0.0.5 10 ms'
+      - 'L 3 26.0.0.2 MRU 1500 [Labels: 16005 Exp: 0] 11 ms'
+      - 'L 4 23.0.0.3 MRU 1500 [Labels: 16005 Exp: 0] 11 ms'
+      - 'L 5 34.0.0.4 MRU 1500 [Labels: implicit-null Exp: 0] 14 ms'
+      - '! 6 45.0.0.5 13 ms'
 ok: [P8] => (item=show isis adjacency Gi0/0/0/1 detail) =>
   msg:
   - - - 'IS-IS IGP Level-2 adjacencies:'
       - System Id      Interface                SNPA           State Hold Changed  NSF IPv4 IPv6
       - '                                                                               BFD  BFD '
-      - P4             Gi0/0/0/1                *PtoP*         Up    25   00:13:53 Yes None None
+      - P4             Gi0/0/0/1                *PtoP*         Up    21   00:17:56 Yes None None
       - '  Area Address:           49'
       - '  Neighbor IPv4 Address:  48.0.0.4*'
       - '  Adjacency SID:          24018 (protected)'
@@ -3069,7 +3246,7 @@ TASK [7.7 DISPLAY THE OUTPUT REGISTERED IN THE PREVIOUS TASK] ******************
 ok: [P2] => (item=show isis fast-reroute 5.5.5.5/32 detail) =>
   msg:
   - - - 'L2 5.5.5.5/32 [30/115] Label: 16005, medium priority'
-      - '   Installed Mar 07 08:00:31.480 for 00:01:03'
+      - '   Installed Mar 16 16:39:44.006 for 00:01:11'
       - '     via 23.0.0.3, GigabitEthernet0/0/0/0, Label: 16005, P3, SRGB Base: 16000, Weight: 0'
       - '       Backup path: TI-LFA (link), via 26.0.0.6, GigabitEthernet0/0/0/1 P6, SRGB Base: 16000, Weight: 0, Metric: 140'
       - '         P node: P8.00 [8.8.8.8], Label: 16008'
@@ -3080,23 +3257,23 @@ ok: [P2] => (item=show isis fast-reroute 5.5.5.5/32 detail) =>
       - '     src PE5.00-00, 5.5.5.5, prefix-SID index 5, R:0 N:1 P:0 E:0 V:0 L:0, Alg:0'
 ok: [P2] => (item=show cef 5.5.5.5/32) =>
   msg:
-  - - - 5.5.5.5/32, version 1377, labeled SR, internal 0x1000001 0x8310 (ptr 0x871928e8) [1], 0x600 (0x878472b0), 0xa28 (0x898df7f8)
-      - ' Updated Mar  7 08:00:31.493 '
+  - - - 5.5.5.5/32, version 1407, labeled SR, internal 0x1000001 0x8310 (ptr 0x87192ad8) [1], 0x600 (0x8808c2f8), 0xa28 (0x898e47f8)
+      - ' Updated Mar 16 16:39:44.015 '
       - ' local adjacency to GigabitEthernet0/0/0/0'
       - ''
       - ' Prefix Len 32, traffic index 0, precedence n/a, priority 1'
-      - '  gateway array (0x876ae318) reference count 6, flags 0x500068, source rib (7), 1 backups'
-      - '                [3 type 5 flags 0x8401 (0x891b0c68) ext 0x0 (0x0)]'
-      - '  LW-LDI[type=5, refc=3, ptr=0x878472b0, sh-ldi=0x891b0c68]'
-      - '  gateway array update type-time 1 Mar  7 08:00:31.493'
-      - ' LDI Update time Mar  7 08:00:31.493'
-      - ' LW-LDI-TS Mar  7 08:00:31.493'
+      - '  gateway array (0x87ef35d0) reference count 6, flags 0x500068, source rib (7), 1 backups'
+      - '                [3 type 5 flags 0x8401 (0x892d5b48) ext 0x0 (0x0)]'
+      - '  LW-LDI[type=5, refc=3, ptr=0x8808c2f8, sh-ldi=0x892d5b48]'
+      - '  gateway array update type-time 1 Mar 16 16:39:44.015'
+      - ' LDI Update time Mar 16 16:39:44.015'
+      - ' LW-LDI-TS Mar 16 16:39:44.015'
       - '   via 23.0.0.3/32, GigabitEthernet0/0/0/0, 10 dependencies, weight 0, class 0, protected [flags 0x400]'
-      - '    path-idx 0 bkup-idx 1 NHID 0x3 [0x89a8bce0 0x0]'
+      - '    path-idx 0 bkup-idx 1 NHID 0xd [0x89a95470 0x0]'
       - '    next hop 23.0.0.3/32'
       - '     local label 16005      labels imposed {16005}'
       - '   via 26.0.0.6/32, GigabitEthernet0/0/0/1, 12 dependencies, weight 0, class 0, backup (TI-LFA) [flags 0xb00]'
-      - '    path-idx 1 NHID 0x2 [0x893baab0 0x0]'
+      - '    path-idx 1 NHID 0xc [0x891d9ab0 0x0]'
       - '    next hop 26.0.0.6/32, Repair Node(s): 8.8.8.8, 4.4.4.4'
       - '    local adjacency'
       - '     local label 16005      labels imposed {16008 24019 16005}'
@@ -3107,7 +3284,7 @@ ok: [P2] => (item=show cef 5.5.5.5/32) =>
       - '    0     Y   GigabitEthernet0/0/0/0    23.0.0.3'
 
 TASK [7.8 RENDER AND DISPLAY DOUBLE SEGMENT TI-LFA REVERSAL CONFIGURATION] *****
-ok: [P4] =>
+ok: [P8] =>
   msg:
   - 'template: ds_tilfa_revert.j2'
   - - router isis IGP
@@ -3119,7 +3296,7 @@ ok: [P4] =>
     - '!'
     - ''
     - ''
-ok: [P8] =>
+ok: [P4] =>
   msg:
   - 'template: ds_tilfa_revert.j2'
   - - router isis IGP
@@ -3210,7 +3387,7 @@ TASK [8.5 DISPLAY THE OUTPUT REGISTERED IN THE PREVIOUS TASK] ******************
 ok: [P2] => (item=show isis fast-reroute 5.5.5.5/32 detail) =>
   msg:
   - - - 'L2 5.5.5.5/32 [120/115] Label: 16005, medium priority'
-      - '   Installed Mar 07 08:01:54.103 for 00:01:01'
+      - '   Installed Mar 16 16:41:34.791 for 00:01:05'
       - '     via 23.0.0.3, GigabitEthernet0/0/0/0, Label: 16005, P3, SRGB Base: 16000, Weight: 0'
       - '       No FRR backup'
       - '     src PE5.00-00, 5.5.5.5, prefix-SID index 5, R:0 N:1 P:0 E:0 V:0 L:0, Alg:0'
@@ -3218,26 +3395,26 @@ ok: [P2] => (item=show route 5.5.5.5/32) =>
   msg:
   - - - Routing entry for 5.5.5.5/32
       - '  Known via "isis IGP", distance 115, metric 120, labeled SR, type level-2'
-      - '  Installed Mar  7 08:01:54.106 for 00:01:02'
+      - '  Installed Mar 16 16:41:34.790 for 00:01:07'
       - '  Routing Descriptor Blocks'
       - '    23.0.0.3, from 5.5.5.5, via GigabitEthernet0/0/0/0'
       - '      Route metric is 120'
       - '  No advertising protos.'
 ok: [P2] => (item=show cef 5.5.5.5/32) =>
   msg:
-  - - - 5.5.5.5/32, version 1458, labeled SR, internal 0x1000001 0x8310 (ptr 0x871928e8) [1], 0x600 (0x878472b0), 0xa28 (0x89170ca8)
-      - ' Updated Mar  7 08:01:54.108 '
+  - - - 5.5.5.5/32, version 1488, labeled SR, internal 0x1000001 0x8310 (ptr 0x87192ad8) [1], 0x600 (0x8808c2f8), 0xa28 (0x89295ac8)
+      - ' Updated Mar 16 16:41:34.793 '
       - ' local adjacency to GigabitEthernet0/0/0/0'
       - ''
       - ' Prefix Len 32, traffic index 0, precedence n/a, priority 1'
-      - '  gateway array (0x876aec28) reference count 6, flags 0x68, source rib (7), 1 backups'
-      - '                [3 type 5 flags 0x8401 (0x891b1208) ext 0x0 (0x0)]'
-      - '  LW-LDI[type=5, refc=3, ptr=0x878472b0, sh-ldi=0x891b1208]'
-      - '  gateway array update type-time 1 Mar  7 08:01:54.108'
-      - ' LDI Update time Mar  7 08:01:54.108'
-      - ' LW-LDI-TS Mar  7 08:01:54.108'
+      - '  gateway array (0x87ef40b0) reference count 6, flags 0x68, source rib (7), 1 backups'
+      - '                [3 type 5 flags 0x8401 (0x892d5ea8) ext 0x0 (0x0)]'
+      - '  LW-LDI[type=5, refc=3, ptr=0x8808c2f8, sh-ldi=0x892d5ea8]'
+      - '  gateway array update type-time 1 Mar 16 16:41:34.793'
+      - ' LDI Update time Mar 16 16:41:34.793'
+      - ' LW-LDI-TS Mar 16 16:41:34.793'
       - '   via 23.0.0.3/32, GigabitEthernet0/0/0/0, 9 dependencies, weight 0, class 0 [flags 0x0]'
-      - '    path-idx 0 NHID 0x3 [0x893badd0 0x0]'
+      - '    path-idx 0 NHID 0xd [0x891d9dd0 0x0]'
       - '    next hop 23.0.0.3/32'
       - '    local adjacency'
       - '     local label 16005      labels imposed {16005}'
@@ -3324,11 +3501,11 @@ ok: [P2] => (item=show isis protocol | utility egrep -A2 Micro) =>
   msg:
   - - - 'Microloop avoidance: Enabled'
       - '          Configuration: Type: Segment Routing, RIB update delay: 60000 msec'
-      - '          State: Active, Duration: 5356 ms, Event Link up, Near: P8.00 Far: P4.00'
+      - '          State: Active, Duration: 8525 ms, Event Link up, Near: P8.00 Far: P4.00'
 ok: [P2] => (item=show isis fast-reroute 5.5.5.5/32 detail) =>
   msg:
   - - - 'L2 5.5.5.5/32 [50/115] Label: 16005, medium priority'
-      - '   Installed Mar 07 08:01:54.103 for 00:02:42'
+      - '   Installed Mar 16 16:41:34.791 for 00:03:13'
       - '     via 23.0.0.3, GigabitEthernet0/0/0/0, Label: 16005, P3, SRGB Base: 16000, Weight: 0'
       - '       No FRR backup'
       - '     src PE5.00-00, 5.5.5.5, prefix-SID index 5, R:0 N:1 P:0 E:0 V:0 L:0, Alg:0'
@@ -3336,7 +3513,7 @@ ok: [P2] => (item=show route 5.5.5.5/32) =>
   msg:
   - - - Routing entry for 5.5.5.5/32
       - '  Known via "isis IGP", distance 115, metric 120, labeled SR, type level-2'
-      - '  Installed Mar  7 08:01:54.103 for 00:02:42'
+      - '  Installed Mar 16 16:41:34.789 for 00:03:15'
       - '  Routing Descriptor Blocks'
       - '    23.0.0.3, from 5.5.5.5, via GigabitEthernet0/0/0/0'
       - '      Route metric is 120'
@@ -3345,7 +3522,7 @@ ok: [P2] => (item=show route 5.5.5.5/32 detail) =>
   msg:
   - - - Routing entry for 5.5.5.5/32
       - '  Known via "isis IGP", distance 115, metric 120, labeled SR, type level-2'
-      - '  Installed Mar  7 08:01:54.104 for 00:02:43'
+      - '  Installed Mar 16 16:41:34.791 for 00:03:17'
       - '  Routing Descriptor Blocks'
       - '    23.0.0.3, from 5.5.5.5, via GigabitEthernet0/0/0/0'
       - '      Route metric is 120'
@@ -3354,7 +3531,7 @@ ok: [P2] => (item=show route 5.5.5.5/32 detail) =>
       - '      Binding Label: None'
       - '      Extended communities count: 0'
       - "      Path id:1\t      Path ref count:0"
-      - '      NHID:0x3(Ref:10)'
+      - '      NHID:0xd(Ref:10)'
       - '  Route version is 0x30 (48)'
       - '  Local Label: 0x3e85 (16005)'
       - '  IP Precedence: Not Set'
@@ -3362,23 +3539,23 @@ ok: [P2] => (item=show route 5.5.5.5/32 detail) =>
       - '  Flow-tag: Not Set'
       - '  Fwd-class: Not Set'
       - '  Route Priority: RIB_PRIORITY_NON_RECURSIVE_MEDIUM (7) SVD Type RIB_SVD_TYPE_LOCAL'
-      - '  Download Priority 1, Download Version 1458'
+      - '  Download Priority 1, Download Version 1488'
       - '  No advertising protos.'
 ok: [P2] => (item=show cef 5.5.5.5/32) =>
   msg:
-  - - - 5.5.5.5/32, version 1458, labeled SR, internal 0x1000001 0x8310 (ptr 0x871928e8) [1], 0x600 (0x878472b0), 0xa28 (0x89170ca8)
-      - ' Updated Mar  7 08:01:54.110 '
+  - - - 5.5.5.5/32, version 1488, labeled SR, internal 0x1000001 0x8310 (ptr 0x87192ad8) [1], 0x600 (0x8808c2f8), 0xa28 (0x89295ac8)
+      - ' Updated Mar 16 16:41:34.796 '
       - ' local adjacency to GigabitEthernet0/0/0/0'
       - ''
       - ' Prefix Len 32, traffic index 0, precedence n/a, priority 1'
-      - '  gateway array (0x876aec28) reference count 6, flags 0x68, source rib (7), 1 backups'
-      - '                [3 type 5 flags 0x8401 (0x891b1208) ext 0x0 (0x0)]'
-      - '  LW-LDI[type=5, refc=3, ptr=0x878472b0, sh-ldi=0x891b1208]'
-      - '  gateway array update type-time 1 Mar  7 08:01:54.110'
-      - ' LDI Update time Mar  7 08:01:54.110'
-      - ' LW-LDI-TS Mar  7 08:01:54.110'
+      - '  gateway array (0x87ef40b0) reference count 6, flags 0x68, source rib (7), 1 backups'
+      - '                [3 type 5 flags 0x8401 (0x892d5ea8) ext 0x0 (0x0)]'
+      - '  LW-LDI[type=5, refc=3, ptr=0x8808c2f8, sh-ldi=0x892d5ea8]'
+      - '  gateway array update type-time 1 Mar 16 16:41:34.796'
+      - ' LDI Update time Mar 16 16:41:34.796'
+      - ' LW-LDI-TS Mar 16 16:41:34.796'
       - '   via 23.0.0.3/32, GigabitEthernet0/0/0/0, 9 dependencies, weight 0, class 0 [flags 0x0]'
-      - '    path-idx 0 NHID 0x3 [0x893badd0 0x0]'
+      - '    path-idx 0 NHID 0xd [0x891d9dd0 0x0]'
       - '    next hop 23.0.0.3/32'
       - '    local adjacency'
       - '     local label 16005      labels imposed {16005}'
@@ -3428,10 +3605,10 @@ TASK [1 secs PAUSE FOR CONVERGENCE] ********************************************
 ok: [P2]
 
 TASK [8.18 DISPLAY THE OUTPUT REGISTERED IN THE PREVIOUS TASK] *****************
-ok: [P7] =>
-  output.dest: xrcfg/P7.mlarestore.xrcfg
 ok: [P2] =>
   output.dest: xrcfg/P2.mlarestore.xrcfg
+ok: [P7] =>
+  output.dest: xrcfg/P7.mlarestore.xrcfg
 
 TASK [8.19 RENDER AND APPLY THE RESTORATION CONFIGURATION] *********************
 changed: [P2]
@@ -3440,15 +3617,6 @@ changed: [P7]
 PLAY [9. CISCO XRV9K SR WITH TI-LFA LAB PLAYBOOK - MPLS TRAFFIC-ENGINEERING] ***
 
 TASK [9.0 RENDER AND DISPLAY THE MPLS TRAFFIC-ENGINEERING CONFIGURATION] *******
-ok: [PE1] =>
-  msg:
-  - 'template: mpls_traff_eng.j2'
-  - - ipv4 unnumbered mpls traffic-eng Loopback0
-    - router isis IGP address-family ipv4 unicast mpls traffic-eng router-id Loopback0
-    - mpls traffic-eng
-    - '!'
-    - ''
-    - ''
 ok: [P2] =>
   msg:
   - 'template: mpls_traff_eng.j2'
@@ -3476,7 +3644,25 @@ ok: [PE5] =>
     - '!'
     - ''
     - ''
+ok: [P8] =>
+  msg:
+  - 'template: mpls_traff_eng.j2'
+  - - ipv4 unnumbered mpls traffic-eng Loopback0
+    - router isis IGP address-family ipv4 unicast mpls traffic-eng router-id Loopback0
+    - mpls traffic-eng
+    - '!'
+    - ''
+    - ''
 ok: [P4] =>
+  msg:
+  - 'template: mpls_traff_eng.j2'
+  - - ipv4 unnumbered mpls traffic-eng Loopback0
+    - router isis IGP address-family ipv4 unicast mpls traffic-eng router-id Loopback0
+    - mpls traffic-eng
+    - '!'
+    - ''
+    - ''
+ok: [PE1] =>
   msg:
   - 'template: mpls_traff_eng.j2'
   - - ipv4 unnumbered mpls traffic-eng Loopback0
@@ -3495,15 +3681,6 @@ ok: [P7] =>
     - ''
     - ''
 ok: [P6] =>
-  msg:
-  - 'template: mpls_traff_eng.j2'
-  - - ipv4 unnumbered mpls traffic-eng Loopback0
-    - router isis IGP address-family ipv4 unicast mpls traffic-eng router-id Loopback0
-    - mpls traffic-eng
-    - '!'
-    - ''
-    - ''
-ok: [P8] =>
   msg:
   - 'template: mpls_traff_eng.j2'
   - - ipv4 unnumbered mpls traffic-eng Loopback0
@@ -3515,13 +3692,13 @@ ok: [P8] =>
 
 TASK [9.1 RENDER AND SAVE THE MPLS TRAFFIC-ENGINEERING CONFIGURATION] **********
 ok: [PE1]
-ok: [P6]
-ok: [P3]
-ok: [PE5]
 ok: [P4]
+ok: [P7]
+ok: [PE5]
 ok: [P8]
 ok: [P2]
-ok: [P7]
+ok: [P3]
+ok: [P6]
 Pausing for 1 seconds
 (ctrl+C then 'C' = continue early, ctrl+C then 'A' = abort)
 
@@ -3531,34 +3708,51 @@ ok: [PE1]
 TASK [9.2 DISPLAY THE OUTPUT REGISTERED IN THE PREVIOUS TASK] ******************
 ok: [PE1] =>
   output.dest: xrcfg/PE1.mpls_traffic_eng.xrcfg
-ok: [P3] =>
-  output.dest: xrcfg/P3.mpls_traffic_eng.xrcfg
-ok: [P4] =>
-  output.dest: xrcfg/P4.mpls_traffic_eng.xrcfg
 ok: [P2] =>
   output.dest: xrcfg/P2.mpls_traffic_eng.xrcfg
-ok: [P7] =>
-  output.dest: xrcfg/P7.mpls_traffic_eng.xrcfg
 ok: [P6] =>
   output.dest: xrcfg/P6.mpls_traffic_eng.xrcfg
+ok: [P7] =>
+  output.dest: xrcfg/P7.mpls_traffic_eng.xrcfg
 ok: [PE5] =>
   output.dest: xrcfg/PE5.mpls_traffic_eng.xrcfg
+ok: [P4] =>
+  output.dest: xrcfg/P4.mpls_traffic_eng.xrcfg
 ok: [P8] =>
   output.dest: xrcfg/P8.mpls_traffic_eng.xrcfg
+ok: [P3] =>
+  output.dest: xrcfg/P3.mpls_traffic_eng.xrcfg
 
 TASK [9.3 RENDER AND APPLY THE MPLS TRAFFIC-ENGINEERING CONFIGURATION] *********
-changed: [PE1]
-changed: [P3]
 changed: [P4]
+changed: [PE1]
 changed: [P2]
-changed: [P7]
 changed: [P6]
 changed: [P8]
+changed: [P7]
 changed: [PE5]
+changed: [P3]
 
 PLAY [10. CISCO XRV9K SR WITH TI-LFA LAB PLAYBOOK - TI-LFA NODE + SRLG PROTECTION PREPARATION] ***
 
 TASK [10.0 RENDER AND DISPLAY THE TI-LFA NODE + SRLG PROTECTION PREPARATION CONFIGURATION] ***
+ok: [P7] =>
+  msg:
+  - 'template: tilfa_ns_prep_p7.j2'
+  - - router isis IGP
+    - ' interface GigabitEthernet0/0/0/0'
+    - '  address-family ipv4 unicast'
+    - '   metric 100'
+    - '  !'
+    - ' !'
+    - ' interface GigabitEthernet0/0/0/4'
+    - '  address-family ipv4 unicast'
+    - '   metric 100'
+    - '  !'
+    - ' !'
+    - '!'
+    - ''
+    - ''
 ok: [P6] =>
   msg:
   - 'template: tilfa_ns_prep_p6.j2'
@@ -3583,23 +3777,6 @@ ok: [P4] =>
     - '!'
     - ''
     - ''
-ok: [P7] =>
-  msg:
-  - 'template: tilfa_ns_prep_p7.j2'
-  - - router isis IGP
-    - ' interface GigabitEthernet0/0/0/0'
-    - '  address-family ipv4 unicast'
-    - '   metric 100'
-    - '  !'
-    - ' !'
-    - ' interface GigabitEthernet0/0/0/4'
-    - '  address-family ipv4 unicast'
-    - '   metric 100'
-    - '  !'
-    - ' !'
-    - '!'
-    - ''
-    - ''
 ok: [P8] =>
   msg:
   - 'template: tilfa_ns_prep_p8.j2'
@@ -3615,10 +3792,10 @@ ok: [P8] =>
     - ''
 
 TASK [10.1 RENDER AND SAVE THE TI-LFA NODE + SRLG PROTECTION PREPARATION CONFIGURATION] ***
+ok: [P6]
 ok: [P4]
 ok: [P7]
 ok: [P8]
-ok: [P6]
 Pausing for 1 seconds
 (ctrl+C then 'C' = continue early, ctrl+C then 'A' = abort)
 
@@ -3626,20 +3803,20 @@ TASK [1 secs PAUSE FOR CONVERGENCE] ********************************************
 ok: [P4]
 
 TASK [10.2 DISPLAY THE OUTPUT REGISTERED IN THE PREVIOUS TASK] *****************
-ok: [P6] =>
-  output.dest: xrcfg/P6.tilfa_ns_prep.xrcfg
 ok: [P4] =>
   output.dest: xrcfg/P4.tilfa_ns_prep.xrcfg
-ok: [P8] =>
-  output.dest: xrcfg/P8.tilfa_ns_prep.xrcfg
+ok: [P6] =>
+  output.dest: xrcfg/P6.tilfa_ns_prep.xrcfg
 ok: [P7] =>
   output.dest: xrcfg/P7.tilfa_ns_prep.xrcfg
+ok: [P8] =>
+  output.dest: xrcfg/P8.tilfa_ns_prep.xrcfg
 
 TASK [10.3 RENDER AND APPLY THE TI-LFA NODE + SRLG PROTECTION PREPARATION CONFIGURATION] ***
 changed: [P4]
 changed: [P6]
-changed: [P8]
 changed: [P7]
+changed: [P8]
 
 PLAY [11. CISCO XRV9K SR WITH TI-LFA LAB PLAYBOOK - TI-LFA NODE PROTECTION] ****
 
@@ -3683,7 +3860,7 @@ TASK [11.5 DISPLAY OUTPUT FOR THE COMMANDS RUN IN THE PREVIOUS TASK] ***********
 ok: [P2] => (item=sh isis fast-reroute 5.5.5.5/32 detail) =>
   msg:
   - - - 'L2 5.5.5.5/32 [30/115] Label: 16005, medium priority'
-      - '   Installed Mar 07 08:05:41.995 for 00:00:49'
+      - '   Installed Mar 16 16:46:29.802 for 00:00:54'
       - '     via 23.0.0.3, GigabitEthernet0/0/0/0, Label: 16005, P3, SRGB Base: 16000, Weight: 0'
       - '       Backup path: TI-LFA (node), via 27.0.0.7, GigabitEthernet0/0/0/3 P7, SRGB Base: 16000, Weight: 0, Metric: 120'
       - '         P node: P7.00 [7.7.7.7], Label: ImpNull'
@@ -3694,23 +3871,23 @@ ok: [P2] => (item=sh isis fast-reroute 5.5.5.5/32 detail) =>
       - '     src PE5.00-00, 5.5.5.5, prefix-SID index 5, R:0 N:1 P:0 E:0 V:0 L:0, Alg:0'
 ok: [P2] => (item=show cef 5.5.5.5/32) =>
   msg:
-  - - - 5.5.5.5/32, version 1630, labeled SR, internal 0x1000001 0x8310 (ptr 0x871928e8) [1], 0x600 (0x87847268), 0xa28 (0x897cde10)
-      - ' Updated Mar  7 08:05:41.998 '
+  - - - 5.5.5.5/32, version 1670, labeled SR, internal 0x1000001 0x8310 (ptr 0x87192ad8) [1], 0x600 (0x8808c538), 0xa28 (0x897e55f0)
+      - ' Updated Mar 16 16:46:29.804 '
       - ' local adjacency to GigabitEthernet0/0/0/0'
       - ''
       - ' Prefix Len 32, traffic index 0, precedence n/a, priority 1'
-      - '  gateway array (0x876aff30) reference count 6, flags 0x500068, source rib (7), 1 backups'
-      - '                [5 type 4 flags 0x8401 (0x891b0f08) ext 0x0 (0x0)]'
-      - '  LW-LDI[type=1, refc=1, ptr=0x87847268, sh-ldi=0x891b0f08]'
-      - '  gateway array update type-time 1 Mar  7 08:05:41.998'
-      - ' LDI Update time Mar  7 08:05:42.002'
-      - ' LW-LDI-TS Mar  7 08:05:42.002'
+      - '  gateway array (0x87ef49c0) reference count 6, flags 0x500068, source rib (7), 1 backups'
+      - '                [5 type 4 flags 0x8401 (0x892d4408) ext 0x0 (0x0)]'
+      - '  LW-LDI[type=1, refc=1, ptr=0x8808c538, sh-ldi=0x892d4408]'
+      - '  gateway array update type-time 1 Mar 16 16:46:29.804'
+      - ' LDI Update time Mar 16 16:46:29.808'
+      - ' LW-LDI-TS Mar 16 16:46:29.808'
       - '   via 23.0.0.3/32, GigabitEthernet0/0/0/0, 14 dependencies, weight 0, class 0, protected [flags 0x400]'
-      - '    path-idx 0 bkup-idx 1 NHID 0x3 [0x89918b00 0x89918b00]'
+      - '    path-idx 0 bkup-idx 1 NHID 0xd [0x8991db00 0x8991db00]'
       - '    next hop 23.0.0.3/32'
       - '     local label 16005      labels imposed {16005}'
       - '   via 27.0.0.7/32, GigabitEthernet0/0/0/3, 17 dependencies, weight 0, class 0, backup (TI-LFA) [flags 0xb00]'
-      - '    path-idx 1 NHID 0xb [0x893bab50 0x0]'
+      - '    path-idx 1 NHID 0xf [0x891d9bf0 0x0]'
       - '    next hop 27.0.0.7/32, Repair Node(s): 7.7.7.7, 4.4.4.4'
       - '    local adjacency'
       - '     local label 16005      labels imposed {ImplNull 24018 16005}'
@@ -3798,7 +3975,7 @@ TASK [12.5 DISPLAY THE OUTPUT REGISTERED IN THE PREVIOUS TASK] *****************
 ok: [P2] => (item=sh isis fast-reroute 5.5.5.5/32 detail) =>
   msg:
   - - - 'L2 5.5.5.5/32 [30/115] Label: 16005, medium priority'
-      - '   Installed Mar 07 08:06:50.509 for 00:01:01'
+      - '   Installed Mar 16 16:48:03.189 for 00:01:04'
       - '     via 23.0.0.3, GigabitEthernet0/0/0/0, Label: 16005, P3, SRGB Base: 16000, Weight: 0'
       - '       Backup path: TI-LFA (srlg), via 26.0.0.6, GigabitEthernet0/0/0/1 P6, SRGB Base: 16000, Weight: 0, Metric: 140'
       - '         P node: P6.00 [6.6.6.6], Label: ImpNull'
@@ -3809,23 +3986,23 @@ ok: [P2] => (item=sh isis fast-reroute 5.5.5.5/32 detail) =>
       - '     src PE5.00-00, 5.5.5.5, prefix-SID index 5, R:0 N:1 P:0 E:0 V:0 L:0, Alg:0'
 ok: [P2] => (item=show cef 5.5.5.5/32) =>
   msg:
-  - - - 5.5.5.5/32, version 1664, labeled SR, internal 0x1000001 0x8310 (ptr 0x871928e8) [1], 0x600 (0x87845c30), 0xa28 (0x897ce1b8)
-      - ' Updated Mar  7 08:06:50.517 '
+  - - - 5.5.5.5/32, version 1704, labeled SR, internal 0x1000001 0x8310 (ptr 0x87192ad8) [1], 0x600 (0x8808c190), 0xa28 (0x897e61b8)
+      - ' Updated Mar 16 16:48:03.197 '
       - ' local adjacency to GigabitEthernet0/0/0/0'
       - ''
       - ' Prefix Len 32, traffic index 0, precedence n/a, priority 1'
-      - '  gateway array (0x876ae230) reference count 6, flags 0x500068, source rib (7), 1 backups'
-      - '                [5 type 4 flags 0x8401 (0x891afbe8) ext 0x0 (0x0)]'
-      - '  LW-LDI[type=1, refc=1, ptr=0x87845c30, sh-ldi=0x891afbe8]'
-      - '  gateway array update type-time 1 Mar  7 08:06:50.517'
-      - ' LDI Update time Mar  7 08:06:50.521'
-      - ' LW-LDI-TS Mar  7 08:06:50.521'
+      - '  gateway array (0x87ef5e98) reference count 6, flags 0x500068, source rib (7), 1 backups'
+      - '                [5 type 4 flags 0x8401 (0x892d5a28) ext 0x0 (0x0)]'
+      - '  LW-LDI[type=1, refc=1, ptr=0x8808c190, sh-ldi=0x892d5a28]'
+      - '  gateway array update type-time 1 Mar 16 16:48:03.197'
+      - ' LDI Update time Mar 16 16:48:03.201'
+      - ' LW-LDI-TS Mar 16 16:48:03.201'
       - '   via 23.0.0.3/32, GigabitEthernet0/0/0/0, 14 dependencies, weight 0, class 0, protected [flags 0x400]'
-      - '    path-idx 0 bkup-idx 1 NHID 0x3 [0x89918ce0 0x89918ce0]'
+      - '    path-idx 0 bkup-idx 1 NHID 0xd [0x8991dce0 0x8991dce0]'
       - '    next hop 23.0.0.3/32'
       - '     local label 16005      labels imposed {16005}'
       - '   via 26.0.0.6/32, GigabitEthernet0/0/0/1, 19 dependencies, weight 0, class 0, backup (TI-LFA) [flags 0xb00]'
-      - '    path-idx 1 NHID 0x2 [0x893baab0 0x0]'
+      - '    path-idx 1 NHID 0xc [0x891d9ab0 0x0]'
       - '    next hop 26.0.0.6/32, Repair Node(s): 6.6.6.6, 7.7.7.7'
       - '    local adjacency'
       - '     local label 16005      labels imposed {ImplNull 24021 16005}'
@@ -3897,8 +4074,8 @@ TASK [13.5 DISPLAY THE OUTPUT REGISTERED IN THE PREVIOUS TASK] *****************
 ok: [P2] => (item=show isis database verbose internal P7 | utility egrep -A10 SRLG) =>
   msg:
   - - - 'MPLS SRLG:      P3.00'
-      - '      Local Interface ID: 4'
-      - '      Remote Interface ID: 4'
+      - '      Local Interface ID: 5'
+      - '      Remote Interface ID: 5'
       - '      Flags: 0x0'
       - '      SRLGs: '
       - '        [0]: 100'
@@ -3909,7 +4086,7 @@ ok: [P2] => (item=show isis database verbose internal P7 | utility egrep -A10 SR
       - '      User Defined Applications: 0x20 LFA'
       - '      Sub-TLV Length: 10'
       - '        SubTLV code:4 length:8'
-      - '          Local Interface ID: 4, Remote Interface ID: 4'
+      - '          Local Interface ID: 5, Remote Interface ID: 5'
       - '      SRLGs:'
       - '        [0]: 100'
       - ''
@@ -3917,10 +4094,10 @@ ok: [P2] => (item=show isis database verbose internal P7 | utility egrep -A10 SR
 ok: [P2] => (item=sh isis fast-reroute 5.5.5.5/32 detail) =>
   msg:
   - - - 'L2 5.5.5.5/32 [30/115] Label: 16005, medium priority'
-      - '   Installed Mar 07 08:08:08.260 for 00:00:59'
+      - '   Installed Mar 16 16:49:35.504 for 00:01:04'
       - '     via 23.0.0.3, GigabitEthernet0/0/0/0, Label: 16005, P3, SRGB Base: 16000, Weight: 0'
       - '       Backup path: TI-LFA (srlg), via 26.0.0.6, GigabitEthernet0/0/0/1 P6, SRGB Base: 16000, Weight: 0, Metric: 220'
-      - '       Backup tunnel: tunnel-te32770'
+      - '       Backup tunnel: tunnel-te32769'
       - '         P node: P6.00 [6.6.6.6], Label: ImpNull'
       - '         Q node: P7.00 [7.7.7.7], Label: 24021'
       - '         Q node: P4.00 [4.4.4.4], Label: 24018'
@@ -3930,23 +4107,23 @@ ok: [P2] => (item=sh isis fast-reroute 5.5.5.5/32 detail) =>
       - '     src PE5.00-00, 5.5.5.5, prefix-SID index 5, R:0 N:1 P:0 E:0 V:0 L:0, Alg:0'
 ok: [P2] => (item=show cef 5.5.5.5/32) =>
   msg:
-  - - - 5.5.5.5/32, version 1676, labeled SR, internal 0x1000001 0x8310 (ptr 0x871928e8) [1], 0x600 (0x878472b0), 0xa28 (0x897cd380)
-      - ' Updated Mar  7 08:08:08.263 '
+  - - - 5.5.5.5/32, version 1716, labeled SR, internal 0x1000001 0x8310 (ptr 0x87192ad8) [1], 0x600 (0x8808c2f8), 0xa28 (0x897e5450)
+      - ' Updated Mar 16 16:49:35.512 '
       - ' local adjacency to GigabitEthernet0/0/0/0'
       - ''
       - ' Prefix Len 32, traffic index 0, precedence n/a, priority 1'
-      - '  gateway array (0x876af7f0) reference count 3, flags 0x500068, source rib (7), 1 backups'
-      - '                [2 type 5 flags 0x8401 (0x891af948) ext 0x0 (0x0)]'
-      - '  LW-LDI[type=5, refc=3, ptr=0x878472b0, sh-ldi=0x891af948]'
-      - '  gateway array update type-time 1 Mar  7 08:08:08.263'
-      - ' LDI Update time Mar  7 08:08:08.263'
-      - ' LW-LDI-TS Mar  7 08:08:08.263'
+      - '  gateway array (0x87ef5840) reference count 3, flags 0x500068, source rib (7), 1 backups'
+      - '                [2 type 5 flags 0x8401 (0x892d5008) ext 0x0 (0x0)]'
+      - '  LW-LDI[type=5, refc=3, ptr=0x8808c2f8, sh-ldi=0x892d5008]'
+      - '  gateway array update type-time 1 Mar 16 16:49:35.512'
+      - ' LDI Update time Mar 16 16:49:35.512'
+      - ' LW-LDI-TS Mar 16 16:49:35.512'
       - '   via 23.0.0.3/32, GigabitEthernet0/0/0/0, 8 dependencies, weight 0, class 0, protected [flags 0x400]'
-      - '    path-idx 0 bkup-idx 1 NHID 0x3 [0x899180b0 0x0]'
+      - '    path-idx 0 bkup-idx 1 NHID 0xd [0x8991d0b0 0x0]'
       - '    next hop 23.0.0.3/32'
       - '     local label 16005      labels imposed {16005}'
-      - '   via 0.0.0.0/32, tunnel-te32770, 9 dependencies, weight 0, class 0, backup (Local-LFA) [flags 0x300]'
-      - '    path-idx 1 NHID 0xc [0x893bb2d0 0x0]'
+      - '   via 0.0.0.0/32, tunnel-te32769, 9 dependencies, weight 0, class 0, backup (Local-LFA) [flags 0x300]'
+      - '    path-idx 1 NHID 0x10 [0x891da230 0x0]'
       - '    next hop 0.0.0.0/32'
       - '    local adjacency'
       - '     local label 16005      labels imposed {16005}'
@@ -3976,8 +4153,8 @@ ok: [P7] =>
     - ''
 
 TASK [13.7 RENDER AND SAVE THE TI-LFA GLOBAL WEIGHTED SRLG REVERSAL CONFIGURATION] ***
-ok: [P7]
 ok: [P2]
+ok: [P7]
 Pausing for 1 seconds
 (ctrl+C then 'C' = continue early, ctrl+C then 'A' = abort)
 
@@ -4036,10 +4213,10 @@ TASK [14.5 DISPLAY OUTPUT FOR THE COMMANDS RUN IN THE PREVIOUS TASK] ***********
 ok: [P2] => (item=show isis fast-reroute 5.5.5.5/32 detail) =>
   msg:
   - - - 'L2 5.5.5.5/32 [30/115] Label: 16005, medium priority'
-      - '   Installed Mar 07 08:09:28.292 for 00:01:01'
+      - '   Installed Mar 16 16:51:20.606 for 00:01:04'
       - '     via 23.0.0.3, GigabitEthernet0/0/0/0, Label: 16005, P3, SRGB Base: 16000, Weight: 0'
       - '       Backup path: TI-LFA (node+srlg), via 26.0.0.6, GigabitEthernet0/0/0/1 P6, SRGB Base: 16000, Weight: 0, Metric: 220'
-      - '       Backup tunnel: tunnel-te32770'
+      - '       Backup tunnel: tunnel-te32769'
       - '         P node: P6.00 [6.6.6.6], Label: ImpNull'
       - '         Q node: P7.00 [7.7.7.7], Label: 24021'
       - '         Q node: P4.00 [4.4.4.4], Label: 24018'
@@ -4049,23 +4226,23 @@ ok: [P2] => (item=show isis fast-reroute 5.5.5.5/32 detail) =>
       - '     src PE5.00-00, 5.5.5.5, prefix-SID index 5, R:0 N:1 P:0 E:0 V:0 L:0, Alg:0'
 ok: [P2] => (item=show cef 5.5.5.5/32) =>
   msg:
-  - - - 5.5.5.5/32, version 1706, labeled SR, internal 0x1000001 0x8310 (ptr 0x871928e8) [1], 0x600 (0x878472b0), 0xa28 (0x897ce018)
-      - ' Updated Mar  7 08:09:28.296 '
+  - - - 5.5.5.5/32, version 1746, labeled SR, internal 0x1000001 0x8310 (ptr 0x87192ad8) [1], 0x600 (0x8808c2f8), 0xa28 (0x897e6018)
+      - ' Updated Mar 16 16:51:20.610 '
       - ' local adjacency to GigabitEthernet0/0/0/0'
       - ''
       - ' Prefix Len 32, traffic index 0, precedence n/a, priority 1'
-      - '  gateway array (0x876aedf8) reference count 3, flags 0x500068, source rib (7), 1 backups'
-      - '                [2 type 5 flags 0x8401 (0x891b0488) ext 0x0 (0x0)]'
-      - '  LW-LDI[type=5, refc=3, ptr=0x878472b0, sh-ldi=0x891b0488]'
-      - '  gateway array update type-time 1 Mar  7 08:09:28.296'
-      - ' LDI Update time Mar  7 08:09:28.296'
-      - ' LW-LDI-TS Mar  7 08:09:28.296'
+      - '  gateway array (0x87ef6b48) reference count 3, flags 0x500068, source rib (7), 1 backups'
+      - '                [2 type 5 flags 0x8401 (0x892d5f68) ext 0x0 (0x0)]'
+      - '  LW-LDI[type=5, refc=3, ptr=0x8808c2f8, sh-ldi=0x892d5f68]'
+      - '  gateway array update type-time 1 Mar 16 16:51:20.610'
+      - ' LDI Update time Mar 16 16:51:20.610'
+      - ' LW-LDI-TS Mar 16 16:51:20.610'
       - '   via 23.0.0.3/32, GigabitEthernet0/0/0/0, 8 dependencies, weight 0, class 0, protected [flags 0x400]'
-      - '    path-idx 0 bkup-idx 1 NHID 0x3 [0x89918b00 0x0]'
+      - '    path-idx 0 bkup-idx 1 NHID 0xd [0x8991db00 0x0]'
       - '    next hop 23.0.0.3/32'
       - '     local label 16005      labels imposed {16005}'
-      - '   via 0.0.0.0/32, tunnel-te32770, 9 dependencies, weight 0, class 0, backup (Local-LFA) [flags 0x300]'
-      - '    path-idx 1 NHID 0xc [0x893bb2d0 0x0]'
+      - '   via 0.0.0.0/32, tunnel-te32769, 9 dependencies, weight 0, class 0, backup (Local-LFA) [flags 0x300]'
+      - '    path-idx 1 NHID 0x10 [0x891da230 0x0]'
       - '    next hop 0.0.0.0/32'
       - '    local adjacency'
       - '     local label 16005      labels imposed {16005}'
@@ -4082,7 +4259,7 @@ TASK [14.7 DISPLAY OUTPUT FOR THE COMMANDS RUN IN THE PREVIOUS TASK] ***********
 ok: [P2] =>
   msg:
   - show cef 5.5.5.5/32
-  - - - tunnelid: '32770'
+  - - - tunnelid: '32769'
 
 TASK [14.8 USE THE CAPTURED TUNNEL-ID TO VERIFY LABEL STACK] *******************
 ok: [P2]
@@ -4090,16 +4267,16 @@ ok: [P2]
 TASK [14.9 DISPLAY OUTPUT FOR THE COMMANDS RUN IN THE PREVIOUS TASK] ***********
 ok: [P2] =>
   msg:
-  - show mpls traffic-eng tunnels 32770
-  - - 'Name: tunnel-te32770  Destination: 0.0.0.0  Ifhandle:0x54 (auto-tunnel for ISIS IGP)'
-    - '  Signalled-Name: auto_P2_t32770'
+  - show mpls traffic-eng tunnels 32769
+  - - 'Name: tunnel-te32769  Destination: 0.0.0.0  Ifhandle:0x4c (auto-tunnel for ISIS IGP)'
+    - '  Signalled-Name: auto_P2_t32769'
     - '  Status:'
     - '    Admin:    up Oper:   up   Path:  valid   Signalling: connected'
     - ''
-    - '    path option (_te32770), preference 10, (verbatim Segment-Routing) type explicit (_te32770) (Basis for Setup)'
+    - '    path option (_te32769), preference 10, (verbatim Segment-Routing) type explicit (_te32769) (Basis for Setup)'
     - '    G-PID: 0x0800 (derived from egress interface properties)'
     - '    Bandwidth Requested: 0 kbps  CT0'
-    - '    Creation Time: Tue Mar  7 08:08:07 2023 (00:02:27 ago)'
+    - '    Creation Time: Thu Mar 16 16:49:34 2023 (00:03:04 ago)'
     - '  Config Parameters:'
     - '    Bandwidth:        0 kbps (CT0) Priority:  7  7 Affinity: 0x0/0xffff'
     - '    Metric Type: TE (global)'
@@ -4124,9 +4301,9 @@ ok: [P2] =>
     - '    Reoptimization after affinity failure: Enabled'
     - '    SRLG discovery: Disabled'
     - '  History:'
-    - '    Tunnel has been up for: 00:02:27 (since Tue Mar 07 08:08:07 UTC 2023)'
+    - '    Tunnel has been up for: 00:03:03 (since Thu Mar 16 16:49:35 UTC 2023)'
     - '    Current LSP:'
-    - '      Uptime: 00:02:27 (since Tue Mar 07 08:08:07 UTC 2023)'
+    - '      Uptime: 00:03:03 (since Thu Mar 16 16:49:35 UTC 2023)'
     - ''
     - '  Segment-Routing Path Info (IGP information is not used)'
     - '    Segment0[First Hop]: 26.0.0.6, Label: -'
@@ -4302,7 +4479,7 @@ TASK [15.9 DISPLAY THE OUTPUT REGISTERED IN THE PREVIOUS TASK] *****************
 ok: [P2] => (item=show isis fast-reroute 5.5.5.5/32 detail) =>
   msg:
   - - - 'L2 5.5.5.5/32 [30/115] Label: 16005, medium priority'
-      - '   Installed Mar 07 08:12:10.238 for 00:00:55'
+      - '   Installed Mar 16 16:54:26.288 for 00:01:04'
       - '     via 23.0.0.3, GigabitEthernet0/0/0/0, Label: 16005, P3, SRGB Base: 16000, Weight: 0'
       - '       Backup path: LFA, via 29.0.0.9, GigabitEthernet0/0/0/5, Label: 16005, P9, SRGB Base: 16000, Weight: 0, Metric: 40'
       - '       P: No, TM: 40, LC: No, NP: No, D: No, SRLG: Yes'
@@ -4311,7 +4488,7 @@ ok: [P2] => (item=show route 5.5.5.5/32) =>
   msg:
   - - - Routing entry for 5.5.5.5/32
       - '  Known via "isis IGP", distance 115, metric 30, labeled SR, type level-2'
-      - '  Installed Mar  7 08:12:10.240 for 00:00:56'
+      - '  Installed Mar 16 16:54:26.288 for 00:01:06'
       - '  Routing Descriptor Blocks'
       - '    23.0.0.3, from 5.5.5.5, via GigabitEthernet0/0/0/0, Protected'
       - '      Route metric is 30'
@@ -4320,23 +4497,23 @@ ok: [P2] => (item=show route 5.5.5.5/32) =>
       - '  No advertising protos.'
 ok: [P2] => (item=show cef 5.5.5.5/32) =>
   msg:
-  - - - 5.5.5.5/32, version 1791, labeled SR, internal 0x1000001 0x8310 (ptr 0x871928e8) [1], 0x600 (0x878472b0), 0xa28 (0x897cd248)
-      - ' Updated Mar  7 08:12:10.247 '
+  - - - 5.5.5.5/32, version 1833, labeled SR, internal 0x1000001 0x8310 (ptr 0x87192ad8) [1], 0x600 (0x8808c2f8), 0xa28 (0x897e55f0)
+      - ' Updated Mar 16 16:54:26.295 '
       - ' local adjacency to GigabitEthernet0/0/0/0'
       - ''
       - ' Prefix Len 32, traffic index 0, precedence n/a, priority 1'
-      - '  gateway array (0x876ae7a0) reference count 6, flags 0x500068, source rib (7), 1 backups'
-      - '                [3 type 5 flags 0x8401 (0x891b1208) ext 0x0 (0x0)]'
-      - '  LW-LDI[type=5, refc=3, ptr=0x878472b0, sh-ldi=0x891b1208]'
-      - '  gateway array update type-time 1 Mar  7 08:12:10.247'
-      - ' LDI Update time Mar  7 08:12:10.247'
-      - ' LW-LDI-TS Mar  7 08:12:10.247'
+      - '  gateway array (0x87ef3148) reference count 6, flags 0x500068, source rib (7), 1 backups'
+      - '                [3 type 5 flags 0x8401 (0x892d5e48) ext 0x0 (0x0)]'
+      - '  LW-LDI[type=5, refc=3, ptr=0x8808c2f8, sh-ldi=0x892d5e48]'
+      - '  gateway array update type-time 1 Mar 16 16:54:26.295'
+      - ' LDI Update time Mar 16 16:54:26.295'
+      - ' LW-LDI-TS Mar 16 16:54:26.295'
       - '   via 23.0.0.3/32, GigabitEthernet0/0/0/0, 10 dependencies, weight 0, class 0, protected [flags 0x400]'
-      - '    path-idx 0 bkup-idx 1 NHID 0x3 [0x89918bf0 0x0]'
+      - '    path-idx 0 bkup-idx 1 NHID 0xd [0x8991dbf0 0x0]'
       - '    next hop 23.0.0.3/32'
       - '     local label 16005      labels imposed {16005}'
       - '   via 29.0.0.9/32, GigabitEthernet0/0/0/5, 22 dependencies, weight 0, class 0, backup (Local-LFA) [flags 0x300]'
-      - '    path-idx 1 NHID 0xe [0x893bb230 0x0]'
+      - '    path-idx 1 NHID 0x12 [0x891da370 0x0]'
       - '    next hop 29.0.0.9/32'
       - '    local adjacency'
       - '     local label 16005      labels imposed {16005}'
@@ -4389,7 +4566,7 @@ TASK [15.15 DISPLAY THE OUTPUT REGISTERED IN THE PREVIOUS TASK] ****************
 ok: [P2] => (item=show isis fast-reroute 5.5.5.5/32 detail) =>
   msg:
   - - - 'L2 5.5.5.5/32 [30/115] Label: 16005, medium priority'
-      - '   Installed Mar 07 08:13:21.881 for 00:01:00'
+      - '   Installed Mar 16 16:56:01.449 for 00:01:02'
       - '     via 23.0.0.3, GigabitEthernet0/0/0/0, Label: 16005, P3, SRGB Base: 16000, Weight: 0'
       - '       Backup path: TI-LFA (srlg), via 29.0.0.9, GigabitEthernet0/0/0/5 P9, SRGB Base: 16000, Weight: 0, Metric: 130'
       - '         P node: P9.00 [9.9.9.9], Label: ImpNull'
@@ -4402,7 +4579,7 @@ ok: [P2] => (item=show route 5.5.5.5/32) =>
   msg:
   - - - Routing entry for 5.5.5.5/32
       - '  Known via "isis IGP", distance 115, metric 30, labeled SR, type level-2'
-      - '  Installed Mar  7 08:13:21.879 for 00:01:00'
+      - '  Installed Mar 16 16:56:01.452 for 00:01:04'
       - '  Routing Descriptor Blocks'
       - '    23.0.0.3, from 5.5.5.5, via GigabitEthernet0/0/0/0, Protected'
       - '      Route metric is 30'
@@ -4412,23 +4589,23 @@ ok: [P2] => (item=show route 5.5.5.5/32) =>
       - '  No advertising protos.'
 ok: [P2] => (item=show cef 5.5.5.5/32) =>
   msg:
-  - - - 5.5.5.5/32, version 1823, labeled SR, internal 0x1000001 0x8310 (ptr 0x871928e8) [1], 0x600 (0x87846338), 0xa28 (0x897cde78)
-      - ' Updated Mar  7 08:13:21.883 '
+  - - - 5.5.5.5/32, version 1863, labeled SR, internal 0x1000001 0x8310 (ptr 0x87192ad8) [1], 0x600 (0x8808c340), 0xa28 (0x897e51e0)
+      - ' Updated Mar 16 16:56:01.456 '
       - ' local adjacency to GigabitEthernet0/0/0/0'
       - ''
       - ' Prefix Len 32, traffic index 0, precedence n/a, priority 1'
-      - '  gateway array (0x876ae4e8) reference count 6, flags 0x500068, source rib (7), 1 backups'
-      - '                [5 type 4 flags 0x8401 (0x891aff48) ext 0x0 (0x0)]'
-      - '  LW-LDI[type=1, refc=1, ptr=0x87846338, sh-ldi=0x891aff48]'
-      - '  gateway array update type-time 1 Mar  7 08:13:21.883'
-      - ' LDI Update time Mar  7 08:13:21.883'
-      - ' LW-LDI-TS Mar  7 08:13:21.883'
+      - '  gateway array (0x87ef3970) reference count 6, flags 0x500068, source rib (7), 1 backups'
+      - '                [5 type 4 flags 0x8401 (0x892d53c8) ext 0x0 (0x0)]'
+      - '  LW-LDI[type=1, refc=1, ptr=0x8808c340, sh-ldi=0x892d53c8]'
+      - '  gateway array update type-time 1 Mar 16 16:56:01.456'
+      - ' LDI Update time Mar 16 16:56:01.456'
+      - ' LW-LDI-TS Mar 16 16:56:01.456'
       - '   via 23.0.0.3/32, GigabitEthernet0/0/0/0, 14 dependencies, weight 0, class 0, protected [flags 0x400]'
-      - '    path-idx 0 bkup-idx 1 NHID 0x3 [0x89918bf0 0x89918bf0]'
+      - '    path-idx 0 bkup-idx 1 NHID 0xd [0x8991dbf0 0x8991dbf0]'
       - '    next hop 23.0.0.3/32'
       - '     local label 16005      labels imposed {16005}'
       - '   via 29.0.0.9/32, GigabitEthernet0/0/0/5, 23 dependencies, weight 0, class 0, backup (TI-LFA) [flags 0xb00]'
-      - '    path-idx 1 NHID 0xe [0x893bb230 0x0]'
+      - '    path-idx 1 NHID 0x12 [0x891da370 0x0]'
       - '    next hop 29.0.0.9/32, Repair Node(s): 9.9.9.9, 3.3.3.3'
       - '    local adjacency'
       - '     local label 16005      labels imposed {ImplNull 24003 16005}'
@@ -4479,7 +4656,7 @@ TASK [15.21 DISPLAY THE OUTPUT REGISTERED IN THE PREVIOUS TASK] ****************
 ok: [P2] => (item=show isis fast-reroute 5.5.5.5/32 detail) =>
   msg:
   - - - 'L2 5.5.5.5/32 [30/115] Label: 16005, medium priority'
-      - '   Installed Mar 07 08:14:32.497 for 00:01:01'
+      - '   Installed Mar 16 16:57:29.064 for 00:01:04'
       - '     via 23.0.0.3, GigabitEthernet0/0/0/0, Label: 16005, P3, SRGB Base: 16000, Weight: 0'
       - '       Backup path: TI-LFA (node), via 27.0.0.7, GigabitEthernet0/0/0/3 P7, SRGB Base: 16000, Weight: 0, Metric: 120'
       - '         P node: P7.00 [7.7.7.7], Label: ImpNull'
@@ -4492,7 +4669,7 @@ ok: [P2] => (item=show route 5.5.5.5/32) =>
   msg:
   - - - Routing entry for 5.5.5.5/32
       - '  Known via "isis IGP", distance 115, metric 30, labeled SR, type level-2'
-      - '  Installed Mar  7 08:14:32.498 for 00:01:02'
+      - '  Installed Mar 16 16:57:29.066 for 00:01:06'
       - '  Routing Descriptor Blocks'
       - '    23.0.0.3, from 5.5.5.5, via GigabitEthernet0/0/0/0, Protected'
       - '      Route metric is 30'
@@ -4502,23 +4679,23 @@ ok: [P2] => (item=show route 5.5.5.5/32) =>
       - '  No advertising protos.'
 ok: [P2] => (item=show cef 5.5.5.5/32) =>
   msg:
-  - - - 5.5.5.5/32, version 1842, labeled SR, internal 0x1000001 0x8310 (ptr 0x871928e8) [1], 0x600 (0x87846338), 0xa28 (0x897ce358)
-      - ' Updated Mar  7 08:14:32.498 '
+  - - - 5.5.5.5/32, version 1882, labeled SR, internal 0x1000001 0x8310 (ptr 0x87192ad8) [1], 0x600 (0x8808c340), 0xa28 (0x897e57f8)
+      - ' Updated Mar 16 16:57:29.068 '
       - ' local adjacency to GigabitEthernet0/0/0/0'
       - ''
       - ' Prefix Len 32, traffic index 0, precedence n/a, priority 1'
-      - '  gateway array (0x876ae6b8) reference count 6, flags 0x500068, source rib (7), 1 backups'
-      - '                [5 type 4 flags 0x8401 (0x891af588) ext 0x0 (0x0)]'
-      - '  LW-LDI[type=1, refc=1, ptr=0x87846338, sh-ldi=0x891af588]'
-      - '  gateway array update type-time 1 Mar  7 08:14:32.498'
-      - ' LDI Update time Mar  7 08:14:32.498'
-      - ' LW-LDI-TS Mar  7 08:14:32.498'
+      - '  gateway array (0x87ef5670) reference count 6, flags 0x500068, source rib (7), 1 backups'
+      - '                [5 type 4 flags 0x8401 (0x892d4468) ext 0x0 (0x0)]'
+      - '  LW-LDI[type=1, refc=1, ptr=0x8808c340, sh-ldi=0x892d4468]'
+      - '  gateway array update type-time 1 Mar 16 16:57:29.068'
+      - ' LDI Update time Mar 16 16:57:29.072'
+      - ' LW-LDI-TS Mar 16 16:57:29.072'
       - '   via 23.0.0.3/32, GigabitEthernet0/0/0/0, 8 dependencies, weight 0, class 0, protected [flags 0x400]'
-      - '    path-idx 0 bkup-idx 1 NHID 0x3 [0x89919460 0x89919460]'
+      - '    path-idx 0 bkup-idx 1 NHID 0xd [0x8991e460 0x8991e460]'
       - '    next hop 23.0.0.3/32'
       - '     local label 16005      labels imposed {16005}'
       - '   via 27.0.0.7/32, GigabitEthernet0/0/0/3, 9 dependencies, weight 0, class 0, backup (TI-LFA) [flags 0xb00]'
-      - '    path-idx 1 NHID 0xb [0x893bab50 0x0]'
+      - '    path-idx 1 NHID 0xf [0x891d9bf0 0x0]'
       - '    next hop 27.0.0.7/32, Repair Node(s): 7.7.7.7, 4.4.4.4'
       - '    local adjacency'
       - '     local label 16005      labels imposed {ImplNull 24018 16005}'
