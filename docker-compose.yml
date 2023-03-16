@@ -1,6 +1,7 @@
 networks:
   mgmt:
     driver_opts:
+      com.docker.network.bridge.name: br-ansible-mgmt
       com.docker.network.container_iface_prefix: xr-13
     ipam:
       config:
@@ -71,7 +72,16 @@ networks:
       com.docker.network.container_iface_prefix: xr-12
     internal: true
     name: xrd-7-gi2-xrd-8-gi2
+
 services:
+  ansible-cisco-sr-lab:
+    container_name: ansible-cisco-sr-lab
+    image: ghcr.io/hmntsharma/ansible-cisco-sr-lab:latest
+    stdin_open: true
+    tty: true
+    networks:
+      mgmt:
+        ipv4_address: 192.168.18.110
   xrd-1:
     cap_add:
     - CHOWN
@@ -106,7 +116,8 @@ services:
       XR_MGMT_INTERFACES: linux:xr-130,xr_name=Mg0/RP0/CPU0/0,chksum
     image: localhost/ios-xr:7.7.1
     networks:
-      mgmt: null
+      mgmt:
+        ipv4_address: 192.168.18.1
       xrd-1-gi2-xrd-2-gi2: null
     security_opt:
     - apparmor:unconfined
@@ -156,7 +167,8 @@ services:
       XR_MGMT_INTERFACES: linux:xr-130,xr_name=Mg0/RP0/CPU0/0,chksum
     image: localhost/ios-xr:7.7.1
     networks:
-      mgmt: null
+      mgmt:
+        ipv4_address: 192.168.18.2
       xrd-1-gi2-xrd-2-gi2: null
       xrd-2-gi0-xrd-3-gi0: null
       xrd-2-gi1-xrd-6-gi1: null
@@ -210,7 +222,8 @@ services:
       XR_MGMT_INTERFACES: linux:xr-130,xr_name=Mg0/RP0/CPU0/0,chksum
     image: localhost/ios-xr:7.7.1
     networks:
-      mgmt: null
+      mgmt:
+        ipv4_address: 192.168.18.3
       xrd-2-gi0-xrd-3-gi0: null
       xrd-3-gi1-xrd-7-gi1: null
       xrd-3-gi2-xrd-4-gi2: null
@@ -263,7 +276,8 @@ services:
       XR_MGMT_INTERFACES: linux:xr-130,xr_name=Mg0/RP0/CPU0/0,chksum
     image: localhost/ios-xr:7.7.1
     networks:
-      mgmt: null
+      mgmt:
+        ipv4_address: 192.168.18.4
       xrd-3-gi2-xrd-4-gi2: null
       xrd-4-gi0-xrd-5-gi0: null
       xrd-4-gi1-xrd-8-gi1: null
@@ -316,7 +330,8 @@ services:
       XR_MGMT_INTERFACES: linux:xr-130,xr_name=Mg0/RP0/CPU0/0,chksum
     image: localhost/ios-xr:7.7.1
     networks:
-      mgmt: null
+      mgmt:
+        ipv4_address: 192.168.18.5
       xrd-4-gi0-xrd-5-gi0: null
     security_opt:
     - apparmor:unconfined
@@ -366,7 +381,8 @@ services:
       XR_MGMT_INTERFACES: linux:xr-130,xr_name=Mg0/RP0/CPU0/0,chksum
     image: localhost/ios-xr:7.7.1
     networks:
-      mgmt: null
+      mgmt:
+        ipv4_address: 192.168.18.6
       xrd-2-gi1-xrd-6-gi1: null
       xrd-6-gi0-xrd-7-gi0: null
     security_opt:
@@ -417,7 +433,8 @@ services:
       XR_MGMT_INTERFACES: linux:xr-130,xr_name=Mg0/RP0/CPU0/0,chksum
     image: localhost/ios-xr:7.7.1
     networks:
-      mgmt: null
+      mgmt:
+        ipv4_address: 192.168.18.7
       xrd-2-gi3-xrd-7-gi3: null
       xrd-3-gi1-xrd-7-gi1: null
       xrd-4-gi4-xrd-7-gi4: null
@@ -471,7 +488,8 @@ services:
       XR_MGMT_INTERFACES: linux:xr-130,xr_name=Mg0/RP0/CPU0/0,chksum
     image: localhost/ios-xr:7.7.1
     networks:
-      mgmt: null
+      mgmt:
+        ipv4_address: 192.168.18.8
       xrd-4-gi1-xrd-8-gi1: null
       xrd-7-gi2-xrd-8-gi2: null
     security_opt:
@@ -522,7 +540,8 @@ services:
       XR_MGMT_INTERFACES: linux:xr-130,xr_name=Mg0/RP0/CPU0/0,chksum
     image: localhost/ios-xr:7.7.1
     networks:
-      mgmt: null
+      mgmt:
+        ipv4_address: 192.168.18.9
       xrd-2-gi5-xrd-9-gi5: null
       xrd-3-gi3-xrd-9-gi3: null
     security_opt:
