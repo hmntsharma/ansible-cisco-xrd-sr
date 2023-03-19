@@ -5,9 +5,8 @@
 * How to configure an xrd-control-plane image is previously documented in [cisco-xrd](https://hmntsharma.github.io/cisco-xrd/).
 
 ```ruby
-lab@xrdlab:~$ sudo docker images
+$ sudo docker images
 localhost/ios-xr                          7.7.1     dd8d741e50b2   7 months ago   1.15GB
-lab@xrdlab:~$
 ```
 * In this lab, the nodes and their management station are all running as independent containers linked to the same management bridge.
 
@@ -69,17 +68,17 @@ services:
 
 ### Clone the Repository
 ```ruby
-(vxrdlab) lab@xrdlab:~/github$ git clone https://github.com/hmntsharma/ansible-cisco-xrd-sr.git
+$ git clone https://github.com/hmntsharma/ansible-cisco-xrd-sr.git
 ```
 
 ```ruby
-(vxrdlab) lab@xrdlab:~/github$ cd ansible-cisco-xrd-sr/
+$ cd ansible-cisco-xrd-sr/
 ```
 
 ### Bring up the topology
 
 ```ruby
-(vxrdlab) lab@xrdlab:~/github/ansible-cisco-xrd-sr$ sudo docker compose up -d
+$ sudo docker compose up -d
 [+] Running 4/4
  ⠿ ansible-cisco-sr-lab Pulled                          23.0s
    ⠿ 63b65145d645 Pull complete                          0.7s
@@ -110,12 +109,12 @@ services:
  ⠿ Container xrd-9                    Started           5.5s
  ⠿ Container ansible-cisco-sr-lab     Started           3.8s
  ⠿ Container xrd-6                    Started           6.2s
-(vxrdlab) lab@xrdlab:~/github/ansible-cisco-xrd-sr$
+$
 ```
 
 ### Verify
 ```ruby
-(vxrdlab) lab@xrdlab:~/github/ansible-cisco-xrd-sr$ sudo docker ps -a
+$ sudo docker ps -a
 CONTAINER ID   IMAGE                                            COMMAND                  CREATED          STATUS          PORTS     NAMES
 e3641f30e773   localhost/ios-xr:7.7.1                           "/bin/sh -c /sbin/xr…"   40 seconds ago   Up 33 seconds             xrd-8
 beb4bbabb3b0   localhost/ios-xr:7.7.1                           "/bin/sh -c /sbin/xr…"   40 seconds ago   Up 34 seconds             xrd-5
@@ -127,7 +126,7 @@ d247231338a6   localhost/ios-xr:7.7.1                           "/bin/sh -c /sbi
 2ddd3d860927   ghcr.io/hmntsharma/ansible-cisco-sr-lab:latest   "/bin/sh"                40 seconds ago   Up 35 seconds             ansible-cisco-sr-lab
 851b53bfdb6c   localhost/ios-xr:7.7.1                           "/bin/sh -c /sbin/xr…"   40 seconds ago   Up 33 seconds             xrd-9
 b24e961b01c8   localhost/ios-xr:7.7.1                           "/bin/sh -c /sbin/xr…"   40 seconds ago   Up 31 seconds             xrd-7
-(vxrdlab) lab@xrdlab:~/github/ansible-cisco-xrd-sr$
+$
 ```
 
 ### Execute the playbook
@@ -137,7 +136,7 @@ Username: ```cisco``` | Password: ```cisco```
 Enter the password at the prompt.
 
 ```ruby
-(vxrdlab) lab@xrdlab:~/github/ansible-cisco-xrd-sr$ sudo docker exec -it ansible-cisco-sr-lab ansible-playbook -u cisco -k all_inclusive_play.yaml
+$ sudo docker exec -it ansible-cisco-sr-lab ansible-playbook -u cisco -k all_inclusive_play.yaml
 SSH password:
 ```
 
