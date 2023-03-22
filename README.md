@@ -143,8 +143,6 @@ SSH password:
 or, simply
 
 ```ruby
-
-```ruby
 $ docker run -it ghcr.io/hmntsharma/ansible-cisco-sr-lab:latest ansible-playbook all_inclusive_play.yaml -e ansible_user="cisco" -e ansible_password="cisco"
 ```
 
