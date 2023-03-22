@@ -140,6 +140,14 @@ $ sudo docker exec -it ansible-cisco-sr-lab ansible-playbook -u cisco -k all_inc
 SSH password:
 ```
 
+or, simply
+
+```ruby
+
+```ruby
+$ docker run -it ghcr.io/hmntsharma/ansible-cisco-sr-lab:latest ansible-playbook all_inclusive_play.yaml -e ansible_user="cisco" -e ansible_password="cisco"
+```
+
 ```ruby
 PLAY [0. RESTORE BASE TOPOLOGY] ************************************************
 
